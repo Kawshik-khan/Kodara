@@ -1,0 +1,90 @@
+.weekly-summary-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.weekly-summary-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.weekly-summary-card__title-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.weekly-summary-card__icon {
+  color: var(--accent-primary);
+}
+
+.weekly-summary-card__title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.weekly-summary-card__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  height: 100%;
+}
+
+.weekly-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-light);
+}
+
+.weekly-stat__icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+.weekly-stat__icon--lessons {
+  color: var(--color-success);
+}
+
+.weekly-stat__icon--challenges {
+  color: var(--accent-primary);
+}
+
+.weekly-stat__icon--time {
+  color: var(--color-info);
+}
+
+.weekly-stat__icon--streak {
+  color: var(--accent-primary);
+}
+
+.weekly-stat__info {
+  display: flex;
+  flex-direction: column;
+}
+
+.weekly-stat__value {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.weekly-stat__label {
+  font-size: 10px;
+  color: var(--text-muted);
+}

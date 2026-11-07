@@ -1,0 +1,74 @@
+.progress-card {
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card, 14px);
+  padding: 16px 20px 20px 20px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.progress-card:hover {
+  border-color: var(--border-card-hover);
+  box-shadow: var(--shadow-card-glow);
+}
+
+.progress-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.progress-card__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.progress-card__link {
+  font-size: 12px;
+  font-weight: 600;
+  color: #FF5E1E;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.progress-card__link:hover {
+  opacity: 0.8;
+}
+
+.progress-card__tracks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.progress-card__track-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-card__track-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  width: 100px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.progress-card__track-val {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+

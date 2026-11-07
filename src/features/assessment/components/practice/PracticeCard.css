@@ -1,0 +1,100 @@
+.kodara-practice-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(255, 94, 30, 0.35);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.kodara-practice-card:hover {
+  border-color: #FF5E1E;
+  box-shadow: 0 8px 30px rgba(255, 94, 30, 0.08);
+}
+
+.kodara-practice-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kodara-practice-card__tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #FF5E1E;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.kodara-practice-card__completed-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #16A34A;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.kodara-practice-card__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.kodara-practice-card__subtitle {
+  font-size: 0.9rem;
+  color: #6B7280;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.kodara-practice-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #4B5563;
+}
+
+.kodara-practice-card__concepts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kodara-practice-card__concept-pill {
+  background: #F3F4F6;
+  color: #374151;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.kodara-practice-card__start-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #FF5E1E;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.2s;
+}
+
+.kodara-practice-card__start-btn:hover {
+  background: #E04D10;
+}

@@ -1,0 +1,4744 @@
+{
+ "source": "\"\"\"Chapter 01: operational truth lives in an append-only event log, not the transcript.\"\"\"\nimport hashlib\nimport json\nfrom dataclasses import dataclass\n\n\n@dataclass(frozen=True)\nclass Event:\n    seq: int\n    kind: str\n    data: dict\n    prev_hash: str\n\n    def digest(self):\n        body = json.dumps([self.seq, self.kind, self.data, self.prev_hash], sort_keys=True)\n        return hashlib.sha256(body.encode()).hexdigest()[:12]\n\n\nclass EventLog:\n    \"\"\"Append-only. Corrections are new events; history is never rewritten.\"\"\"\n\n    def __init__(self):\n        self.events = []\n\n    def append(self, kind, **data):\n        prev = self.events[-1].digest() if self.events else \"genesis\"\n        self.events.append(Event(len(self.events) + 1, kind, data, prev))\n\n    def intact(self):\n        prev = \"genesis\"\n        for event in self.events:\n            if event.prev_hash != prev:\n                return False\n            prev = event.digest()\n        return True\n\n\ndef materialize(events):\n    \"\"\"Task state is a projection of the events, rebuilt the same way every time.\"\"\"\n    state = {\"phase\": \"RECEIVED\", \"unresolved\": [], \"evidence\": []}\n    for event in events:\n        if event.kind == \"effect_dispatched\":\n            state[\"phase\"] = \"EXECUTING\"\n            state[\"unresolved\"].append(event.data[\"key\"])\n        elif event.kind in (\"effect_observed\", \"effect_reconciled\"):\n            state[\"unresolved\"].remove(event.data[\"key\"])\n            state[\"evidence\"].append(event.data[\"key\"])\n        elif event.kind == \"completed\":\n            state[\"phase\"] = \"COMPLETED\"\n    return state\n\n\nclass Provider:\n    \"\"\"The payment system: the authoritative record of refunds.\"\"\"\n\n    def __init__(self):\n        self.ledger = {}\n\n    def refund(self, key, amount):\n        self.ledger.setdefault(key, amount)\n\n    def lookup(self, key):\n        return self.ledger.get(key)\n\n\nclass Crash(Exception):\n    \"\"\"The worker dies after the provider accepted the refund.\"\"\"\n\n\ndef worker(log, transcript, provider, crash=False):\n    key = \"refund-case-882\"\n    log.append(\"effect_dispatched\", key=key, amount=42.0)   # intent recorded first\n    provider.refund(key, 42.0)\n    if crash:\n        raise Crash(\"worker died before the response was written\")\n    log.append(\"effect_observed\", key=key)\n    transcript.append(\"refund confirmed\")\n\n\ndef resume_from_transcript(transcript, provider):\n    \"\"\"Narrative reconstruction: no confirmation in the chat, so refund again.\"\"\"\n    if \"refund confirmed\" not in transcript:\n        provider.refund(f\"retry-{len(transcript) + 1}\", 42.0)  # a new id, a second refund\n        transcript.append(\"refund confirmed\")\n\n\ndef resume_from_log(log, provider):\n    \"\"\"Rebuild state from events, reconcile unresolved effects, then finish.\"\"\"\n    if not log.intact():\n        raise RuntimeError(\"event log was edited: refuse to resume\")\n    state = materialize(log.events)\n    for key in list(state[\"unresolved\"]):\n        if provider.lookup(key) is not None:\n            log.append(\"effect_reconciled\", key=key)\n        else:\n            log.append(\"effect_escalated\", key=key)\n    state = materialize(log.events)\n    if not state[\"unresolved\"]:\n        log.append(\"completed\", evidence=state[\"evidence\"])\n    return materialize(log.events)\n\n\nif __name__ == \"__main__\":\n    for name, resume in [(\"resume from transcript\", \"transcript\"), (\"resume from event log\", \"log\")]:\n        log, transcript, provider = EventLog(), [], Provider()\n        try:\n            worker(log, transcript, provider, crash=True)\n        except Crash:\n            pass\n        if resume == \"transcript\":\n            resume_from_transcript(transcript, provider)\n        else:\n            print(f\"# {name}: {resume_from_log(log, provider)}\")\n        print(f\"# {name}: refunds={len(provider.ledger)} {provider.ledger}\")",
+ "sourcePath": "harness/ch01/event_log.py",
+ "python": "3.14.7",
+ "scenarios": {
+  "crash": [
+   {
+    "line": 71,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "worker",
+      "line": 71,
+      "locals": {
+       "log": "EventLog()",
+       "transcript": "[]",
+       "provider": "Provider()",
+       "crash": "True"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": []
+     },
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {}
+     }
+    }
+   },
+   {
+    "line": 72,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "worker",
+      "line": 72,
+      "locals": {
+       "log": "EventLog()",
+       "transcript": "[]",
+       "provider": "Provider()",
+       "crash": "True",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": []
+     },
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {}
+     }
+    }
+   },
+   {
+    "line": 26,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "worker",
+      "line": 72,
+      "locals": {
+       "log": "EventLog()",
+       "transcript": "[]",
+       "provider": "Provider()",
+       "crash": "True",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 26,
+      "locals": {
+       "kind": "'effect_dispatched'",
+       "data": "{'key': 'refund-case-882', 'amount': 42.0}"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": []
+     },
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {}
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "worker",
+      "line": 72,
+      "locals": {
+       "log": "EventLog()",
+       "transcript": "[]",
+       "provider": "Provider()",
+       "crash": "True",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 27,
+      "locals": {
+       "kind": "'effect_dispatched'",
+       "data": "{'key': 'refund-case-882', 'amount': 42.0}",
+       "prev": "'genesis'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": []
+     },
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {}
+     }
+    }
+   },
+   {
+    "line": 73,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "worker",
+      "line": 73,
+      "locals": {
+       "log": "EventLog()",
+       "transcript": "[]",
+       "provider": "Provider()",
+       "crash": "True",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {}
+     }
+    }
+   },
+   {
+    "line": 60,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "worker",
+      "line": 73,
+      "locals": {
+       "log": "EventLog()",
+       "transcript": "[]",
+       "provider": "Provider()",
+       "crash": "True",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "Provider.refund",
+      "line": 60,
+      "locals": {
+       "key": "'refund-case-882'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {}
+     }
+    }
+   },
+   {
+    "line": 74,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "worker",
+      "line": 74,
+      "locals": {
+       "log": "EventLog()",
+       "transcript": "[]",
+       "provider": "Provider()",
+       "crash": "True",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 75,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "worker",
+      "line": 75,
+      "locals": {
+       "log": "EventLog()",
+       "transcript": "[]",
+       "provider": "Provider()",
+       "crash": "True",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 75,
+    "event": "exception",
+    "frames": [
+     {
+      "fn": "worker",
+      "line": 75,
+      "locals": {
+       "log": "EventLog()",
+       "transcript": "[]",
+       "provider": "Provider()",
+       "crash": "True",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    },
+    "detail": "Crash('worker died before the response was written')"
+   }
+  ],
+  "log": [
+   {
+    "line": 89,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 30,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 30,
+      "locals": {}
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 31,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 31,
+      "locals": {
+       "prev": "'genesis'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 32,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 32,
+      "locals": {
+       "prev": "'genesis'",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 34,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 34,
+      "locals": {
+       "prev": "'genesis'",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 15,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 34,
+      "locals": {
+       "prev": "'genesis'",
+       "event": "Event(seq=1)"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 15,
+      "locals": {}
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 16,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 34,
+      "locals": {
+       "prev": "'genesis'",
+       "event": "Event(seq=1)"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 16,
+      "locals": {
+       "body": "'[1, \"effect_dispatched\", {\"amount\": 42.0, \"key\": \"refund..."
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 16,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 34,
+      "locals": {
+       "prev": "'genesis'",
+       "event": "Event(seq=1)"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 16,
+      "locals": {
+       "body": "'[1, \"effect_dispatched\", {\"amount\": 42.0, \"key\": \"refund..."
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    },
+    "detail": "'2d75e68e260a'"
+   },
+   {
+    "line": 31,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 31,
+      "locals": {
+       "prev": "'2d75e68e260a'",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 35,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 35,
+      "locals": {
+       "prev": "'2d75e68e260a'",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 35,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 35,
+      "locals": {
+       "prev": "'2d75e68e260a'",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    },
+    "detail": "True"
+   },
+   {
+    "line": 91,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 91,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 91,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 40,
+      "locals": {
+       "events": "[Event(seq=1)]"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 91,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 41,
+      "locals": {
+       "events": "[Event(seq=1)]",
+       "state": "{'phase': 'RECEIVED', 'unresolved': [], 'evidence': []}"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 91,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 42,
+      "locals": {
+       "events": "[Event(seq=1)]",
+       "state": "{'phase': 'RECEIVED', 'unresolved': [], 'evidence': []}",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 91,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 43,
+      "locals": {
+       "events": "[Event(seq=1)]",
+       "state": "{'phase': 'RECEIVED', 'unresolved': [], 'evidence': []}",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 91,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 44,
+      "locals": {
+       "events": "[Event(seq=1)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': []}",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 91,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 41,
+      "locals": {
+       "events": "[Event(seq=1)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 91,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 50,
+      "locals": {
+       "events": "[Event(seq=1)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 91,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 50,
+      "locals": {
+       "events": "[Event(seq=1)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    },
+    "detail": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],..."
+   },
+   {
+    "line": 92,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 92,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],..."
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 93,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 93,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 63,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 93,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "Provider.lookup",
+      "line": 63,
+      "locals": {
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 63,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 93,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "Provider.lookup",
+      "line": 63,
+      "locals": {
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    },
+    "detail": "42.0"
+   },
+   {
+    "line": 94,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 94,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 26,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 94,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 26,
+      "locals": {
+       "kind": "'effect_reconciled'",
+       "data": "{'key': 'refund-case-882'}"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 15,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 94,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 26,
+      "locals": {
+       "kind": "'effect_reconciled'",
+       "data": "{'key': 'refund-case-882'}"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 15,
+      "locals": {}
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 16,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 94,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 26,
+      "locals": {
+       "kind": "'effect_reconciled'",
+       "data": "{'key': 'refund-case-882'}"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 16,
+      "locals": {
+       "body": "'[1, \"effect_dispatched\", {\"amount\": 42.0, \"key\": \"refund..."
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 16,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 94,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 26,
+      "locals": {
+       "kind": "'effect_reconciled'",
+       "data": "{'key': 'refund-case-882'}"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 16,
+      "locals": {
+       "body": "'[1, \"effect_dispatched\", {\"amount\": 42.0, \"key\": \"refund..."
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    },
+    "detail": "'2d75e68e260a'"
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 94,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 27,
+      "locals": {
+       "kind": "'effect_reconciled'",
+       "data": "{'key': 'refund-case-882'}",
+       "prev": "'2d75e68e260a'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 92,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 92,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 97,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 40,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 41,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'RECEIVED', 'unresolved': [], 'evidence': []}"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 42,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'RECEIVED', 'unresolved': [], 'evidence': []}",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 43,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'RECEIVED', 'unresolved': [], 'evidence': []}",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 44,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': []}",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 41,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 42,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 45,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 45,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 46,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 47,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': []}",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 41,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 50,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 97,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 50,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    },
+    "detail": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re..."
+   },
+   {
+    "line": 98,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 98,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 99,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 99,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 26,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 99,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 26,
+      "locals": {
+       "kind": "'completed'",
+       "data": "{'evidence': ['refund-case-882']}"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 15,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 99,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 26,
+      "locals": {
+       "kind": "'completed'",
+       "data": "{'evidence': ['refund-case-882']}"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 15,
+      "locals": {}
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 16,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 99,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 26,
+      "locals": {
+       "kind": "'completed'",
+       "data": "{'evidence': ['refund-case-882']}"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 16,
+      "locals": {
+       "body": "'[2, \"effect_reconciled\", {\"key\": \"refund-case-882\"}, \"2d..."
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 16,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 99,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 26,
+      "locals": {
+       "kind": "'completed'",
+       "data": "{'evidence': ['refund-case-882']}"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 16,
+      "locals": {
+       "body": "'[2, \"effect_reconciled\", {\"key\": \"refund-case-882\"}, \"2d..."
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    },
+    "detail": "'1e7059f42e70'"
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 99,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "EventLog.append",
+      "line": 27,
+      "locals": {
+       "kind": "'completed'",
+       "data": "{'evidence': ['refund-case-882']}",
+       "prev": "'1e7059f42e70'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 100,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 40,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 41,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'RECEIVED', 'unresolved': [], 'evidence': []}"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 42,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'RECEIVED', 'unresolved': [], 'evidence': []}",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 43,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'RECEIVED', 'unresolved': [], 'evidence': []}",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 44,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': []}",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 41,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 42,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 45,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 45,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 46,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': ['refund-case-882'],...",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 47,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': []}",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 41,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 42,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "event": "Event(seq=3)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 45,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 45,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "event": "Event(seq=3)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 48,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "event": "Event(seq=3)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 49,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "event": "Event(seq=3)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 41,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'COMPLETED', 'unresolved': [], 'evidence': ['re...",
+       "event": "Event(seq=3)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 50,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'COMPLETED', 'unresolved': [], 'evidence': ['re...",
+       "event": "Event(seq=3)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     },
+     {
+      "fn": "materialize",
+      "line": 50,
+      "locals": {
+       "events": "[Event(seq=1), Event(seq=2), Event(seq=3)]",
+       "state": "{'phase': 'COMPLETED', 'unresolved': [], 'evidence': ['re...",
+       "event": "Event(seq=3)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    },
+    "detail": "{'phase': 'COMPLETED', 'unresolved': [], 'evidence': ['re..."
+   },
+   {
+    "line": 100,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 100,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()",
+       "state": "{'phase': 'EXECUTING', 'unresolved': [], 'evidence': ['re...",
+       "key": "'refund-case-882'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 42.0
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_reconciled",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       },
+       {
+        "seq": 3,
+        "kind": "completed",
+        "data": {
+         "evidence": [
+          "refund-case-882"
+         ]
+        },
+        "prev_hash": "1e7059f42e70"
+       }
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    },
+    "detail": "{'phase': 'COMPLETED', 'unresolved': [], 'evidence': ['re..."
+   }
+  ],
+  "transcript": [
+   {
+    "line": 82,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_transcript",
+      "line": 82,
+      "locals": {
+       "transcript": "[]",
+       "provider": "Provider()"
+      }
+     }
+    ],
+    "objects": {
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 83,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_transcript",
+      "line": 83,
+      "locals": {
+       "transcript": "[]",
+       "provider": "Provider()"
+      }
+     }
+    ],
+    "objects": {
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 60,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_transcript",
+      "line": 83,
+      "locals": {
+       "transcript": "[]",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "Provider.refund",
+      "line": 60,
+      "locals": {
+       "key": "'retry-1'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0
+      }
+     }
+    }
+   },
+   {
+    "line": 84,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_transcript",
+      "line": 84,
+      "locals": {
+       "transcript": "[]",
+       "provider": "Provider()"
+      }
+     }
+    ],
+    "objects": {
+     "transcript": {
+      "items": []
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882": 42.0,
+       "retry-1": 42.0
+      }
+     }
+    }
+   }
+  ],
+  "edited": [
+   {
+    "line": 89,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "line": 30,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 30,
+      "locals": {}
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "line": 31,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 31,
+      "locals": {
+       "prev": "'genesis'"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "line": 32,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 32,
+      "locals": {
+       "prev": "'genesis'",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "line": 34,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 34,
+      "locals": {
+       "prev": "'genesis'",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "line": 15,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 34,
+      "locals": {
+       "prev": "'genesis'",
+       "event": "Event(seq=1)"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 15,
+      "locals": {}
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "line": 16,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 34,
+      "locals": {
+       "prev": "'genesis'",
+       "event": "Event(seq=1)"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 16,
+      "locals": {
+       "body": "'[1, \"effect_dispatched\", {\"amount\": 4.2, \"key\": \"refund-..."
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "line": 16,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 34,
+      "locals": {
+       "prev": "'genesis'",
+       "event": "Event(seq=1)"
+      }
+     },
+     {
+      "fn": "Event.digest",
+      "line": 16,
+      "locals": {
+       "body": "'[1, \"effect_dispatched\", {\"amount\": 4.2, \"key\": \"refund-..."
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    },
+    "detail": "'817e48763acd'"
+   },
+   {
+    "line": 31,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 31,
+      "locals": {
+       "prev": "'817e48763acd'",
+       "event": "Event(seq=1)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "line": 32,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 32,
+      "locals": {
+       "prev": "'817e48763acd'",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "line": 33,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 33,
+      "locals": {
+       "prev": "'817e48763acd'",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "line": 33,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 89,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     },
+     {
+      "fn": "EventLog.intact",
+      "line": 33,
+      "locals": {
+       "prev": "'817e48763acd'",
+       "event": "Event(seq=2)"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    },
+    "detail": "False"
+   },
+   {
+    "line": 90,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 90,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "line": 90,
+    "event": "exception",
+    "frames": [
+     {
+      "fn": "resume_from_log",
+      "line": 90,
+      "locals": {
+       "log": "EventLog()",
+       "provider": "Provider()"
+      }
+     }
+    ],
+    "objects": {
+     "log": {
+      "events": [
+       {
+        "seq": 1,
+        "kind": "effect_dispatched",
+        "data": {
+         "key": "refund-case-882",
+         "amount": 4.2
+        },
+        "prev_hash": "genesis"
+       },
+       {
+        "seq": 2,
+        "kind": "effect_observed",
+        "data": {
+         "key": "refund-case-882"
+        },
+        "prev_hash": "2d75e68e260a"
+       }
+      ]
+     }
+    },
+    "detail": "RuntimeError('event log was edited: refuse to resume')"
+   }
+  ]
+ }
+}

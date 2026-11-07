@@ -1,0 +1,232 @@
+.kodara-chart {
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-card, rgba(255, 94, 30, 0.35));
+  border-radius: var(--radius-card, 14px);
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 18px 0;
+  min-width: 0;
+}
+
+.kodara-chart__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-light, #ebebeb);
+}
+
+.kodara-chart__heading { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kodara-chart__title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.kodara-chart__badge {
+  font: 700 10px var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.kodara-chart__title { margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.kodara-chart__subtitle { margin: 0; font-size: 13px; color: var(--text-secondary); max-width: 80ch; }
+
+.kodara-chart__seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.kodara-chart__seg button {
+  border: 0;
+  background: transparent;
+  font: 600 12px var(--font-sans);
+  padding: 6px 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  min-width: 34px;
+}
+
+.kodara-chart__seg button + button { border-left: 1px solid var(--border-light); }
+
+.kodara-chart__seg button[aria-pressed="true"],
+.kodara-chart__seg button[aria-selected="true"] {
+  background: var(--accent-primary);
+  color: #ffffff;
+}
+
+.kodara-chart__bento {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.kodara-chart { container-type: inline-size; }
+
+
+.kodara-chart__canvas {
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background-color: var(--bg-canvas, #faf8f5);
+  background-image:
+    linear-gradient(to right, var(--grid-line-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-color) 1px, transparent 1px);
+  background-size: var(--grid-size, 24px) var(--grid-size, 24px);
+  overflow-x: auto;
+}
+
+.kodara-chart__canvas svg {
+  display: block;
+  width: 100%;
+  min-width: 440px;
+  height: auto;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.kodara-chart__grid { stroke: rgba(26, 26, 26, 0.07); stroke-width: 1; }
+.kodara-chart__axis { stroke: var(--text-primary, #1a1a1a); stroke-width: 1.6; }
+.kodara-chart__tick { font: 11px var(--font-mono); fill: var(--text-muted); }
+.kodara-chart__axis-label { font-size: 12px; fill: var(--text-secondary); }
+
+.kodara-chart__series { fill: none; stroke-width: 3.5; stroke-linejoin: round; }
+.kodara-chart__series.is-dashed { stroke-width: 2.2; stroke-dasharray: 0.012 0.01; }
+
+.kodara-chart__series.is-drawn {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: kodaraChartDraw 900ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes kodaraChartDraw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+.kodara-chart__legend { fill: rgba(255, 255, 255, 0.92); stroke: var(--border-light); }
+.kodara-chart__legend-text { font-size: 11.5px; fill: var(--text-primary); }
+.kodara-chart__guide { stroke: var(--text-muted); stroke-width: 1.4; stroke-dasharray: 4 4; }
+.kodara-chart__dot { fill: #ffffff; stroke-width: 2.5; }
+.kodara-chart__dot-label { font: 600 11.5px var(--font-mono); }
+.kodara-chart__marker { stroke: #ffffff; stroke-width: 2; }
+.kodara-chart__tag { fill: var(--text-primary); }
+.kodara-chart__tag-text { font: 700 12.5px var(--font-mono); fill: #ffffff; }
+
+.kodara-chart__side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+.kodara-chart__panel {
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kodara-chart__label { font: 600 11px var(--font-mono); text-transform: uppercase; color: var(--text-muted); }
+.kodara-chart__big-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.kodara-chart__big { font: 700 30px/1 var(--font-mono); color: var(--accent-primary); }
+
+.kodara-chart__sweep {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 12px var(--font-sans);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--accent-primary);
+  background: #ffffff;
+  color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.kodara-chart__sweep:hover { background: var(--accent-soft); }
+.kodara-chart__slider { width: 100%; accent-color: var(--accent-primary, #ff5e1e); }
+
+.kodara-chart__bars { gap: 10px; }
+.kodara-chart__bar-group { display: flex; flex-direction: column; gap: 3px; }
+.kodara-chart__bar-title { font-size: 12.5px; color: var(--text-secondary); }
+
+.kodara-chart__bar {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 64px;
+  gap: 8px;
+  align-items: center;
+  font: 11.5px var(--font-mono);
+  color: var(--text-muted);
+}
+
+.kodara-chart__track { height: 10px; background: var(--bg-surface-subtle); border-radius: 3px; overflow: hidden; }
+.kodara-chart__fill { display: block; height: 100%; border-radius: 3px; transition: width 0.25s; }
+.kodara-chart__bar-value { text-align: right; color: var(--text-primary); }
+
+.kodara-chart__formula {
+  font: 12.5px var(--font-mono);
+  color: var(--text-secondary);
+  background: var(--bg-surface-muted);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 6px 10px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.kodara-chart__insight {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-light);
+  padding-top: 10px;
+}
+
+.kodara-chart__modeled { margin: 0; font: 11.5px var(--font-mono); color: var(--text-muted); }
+
+.kodara-chart__manim { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.kodara-chart__how { margin: 0; font-size: 13px; color: var(--text-secondary); }
+
+.kodara-chart__how code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-surface-muted);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.kodara-chart__source {
+  margin: 0;
+  max-height: 520px;
+  overflow: auto;
+  font: 12.5px/1.65 var(--font-mono);
+  padding: 14px 16px;
+  background: #fbfaf8;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  white-space: pre;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kodara-chart__series.is-drawn { animation: none; }
+  .kodara-chart__fill { transition: none; }
+}
+
+@container (max-width: 760px) {
+  .kodara-chart__bento { grid-template-columns: minmax(0, 1fr); }
+
+  .kodara-chart__side {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    align-items: start;
+  }
+}

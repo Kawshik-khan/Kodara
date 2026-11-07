@@ -1,0 +1,22 @@
+.kodara-scene-renderer {
+  position: relative;
+  width: 100%;
+  background: #ffffff;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border-light, #EBEBEB);
+  overflow: hidden;
+}
+
+.kodara-scene-renderer__viewport {
+  position: relative;
+  width: 100%;
+  max-height: 480px;
+}
+
+.kodara-scene-renderer__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}

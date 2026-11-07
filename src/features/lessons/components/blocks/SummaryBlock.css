@@ -1,0 +1,66 @@
+.kodara-summary {
+  background: #ffffff;
+  border: 1px solid var(--border-card, rgba(255, 94, 30, 0.35));
+  border-radius: var(--radius-card, 14px);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-card);
+  margin: var(--space-4) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kodara-summary__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kodara-summary__section-subtitle {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.kodara-summary__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kodara-summary__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.kodara-summary__checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #FAF8F5;
+  border: 1px solid var(--border-card-subtle, rgba(255, 94, 30, 0.18));
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.kodara-summary__check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}

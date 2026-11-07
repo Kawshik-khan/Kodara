@@ -1,0 +1,157 @@
+.projects-card {
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card, 14px);
+  padding: 16px 20px 20px 20px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.projects-card:hover {
+  border-color: var(--border-card-hover);
+  box-shadow: var(--shadow-card-glow);
+}
+
+.projects-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.projects-card__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.projects-card__link {
+  font-size: 12px;
+  font-weight: 600;
+  color: #FF5E1E;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.projects-card__link:hover {
+  opacity: 0.8;
+}
+
+.projects-card__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.projects-card__item {
+  background-color: #FAF8F5;
+  border: 1px solid var(--border-card-subtle);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.projects-card__item:hover {
+  background-color: #FFF6F2;
+  border-color: #FF5E1E;
+  box-shadow: 0 2px 8px rgba(255, 94, 30, 0.1);
+}
+
+.projects-card__item-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background-color: #FFF1EB;
+  border: 1px solid #FFE2D4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.projects-card__item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.projects-card__item-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.projects-card__item-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.projects-card__item-tag {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: #ffffff;
+  border: 1px solid var(--border-card-subtle);
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1.2;
+}
+
+.projects-card__progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.projects-card__progress-val {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.projects-card__chevron {
+  color: var(--text-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.projects-card__item:hover .projects-card__chevron {
+  color: #FF5E1E;
+  opacity: 1;
+}
+
+.projects-card__new-btn {
+  width: 100%;
+  padding: 9px;
+  background: transparent;
+  border: 1px dashed #FF9A70;
+  border-radius: 8px;
+  color: #FF5E1E;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.projects-card__new-btn:hover {
+  background: #FFF1EB;
+  border-color: #FF5E1E;
+}
+

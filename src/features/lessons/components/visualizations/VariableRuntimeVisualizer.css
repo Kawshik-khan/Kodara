@@ -1,0 +1,214 @@
+.kodara-var-vis {
+  background: #ffffff;
+  border: 1px solid var(--border-card, rgba(255, 94, 30, 0.35));
+  border-radius: var(--radius-card, 14px);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  margin: var(--space-4) 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kodara-var-vis__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: #FAF8F5;
+  border-bottom: 1px solid var(--border-card-subtle, rgba(255, 94, 30, 0.18));
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.kodara-var-vis__title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kodara-var-vis__mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid var(--border-card-subtle, rgba(255, 94, 30, 0.18));
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.kodara-var-vis__mode-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.kodara-var-vis__mode-btn--active {
+  background: #FF5E1E;
+  color: #ffffff;
+}
+
+.kodara-var-vis__canvas-area {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  background: #FAF8F5;
+  position: relative;
+}
+
+.kodara-var-vis__diagram-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  width: 100%;
+  max-width: 600px;
+  flex-wrap: wrap;
+}
+
+.kodara-var-vis__box {
+  background: #ffffff;
+  border: 1px solid var(--border-card, rgba(255, 94, 30, 0.35));
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.kodara-var-vis__box--source {
+  border-left: 3px solid #0284C7;
+}
+
+.kodara-var-vis__box--binding {
+  border-left: 3px solid #FF5E1E;
+}
+
+.kodara-var-vis__box--value {
+  border-left: 3px solid #16A34A;
+}
+
+.kodara-var-vis__box-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.kodara-var-vis__box-content {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.kodara-var-vis__connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #FF5E1E;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.kodara-var-vis__error-toast {
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  color: #991B1B;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: shakeError 0.3s ease-in-out;
+}
+
+@keyframes shakeError {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.kodara-var-vis__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: #ffffff;
+  border-top: 1px solid var(--border-card-subtle, rgba(255, 94, 30, 0.18));
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.kodara-var-vis__stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kodara-var-vis__slider-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.kodara-var-vis__slider {
+  accent-color: #FF5E1E;
+  cursor: pointer;
+}
+
+.kodara-var-vis__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #FAF8F5;
+  border: 1px solid var(--border-card-subtle, rgba(255, 94, 30, 0.18));
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kodara-var-vis__btn:hover:not(:disabled) {
+  border-color: #FF5E1E;
+  background: #FFF1EB;
+  color: #FF5E1E;
+}
+
+.kodara-var-vis__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.kodara-var-vis__explanation-bar {
+  padding: 10px 18px;
+  background: #FFF8F5;
+  border-top: 1px solid var(--border-card-subtle, rgba(255, 94, 30, 0.18));
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}

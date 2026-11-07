@@ -1,0 +1,61 @@
+.kodara-lesson-content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+}
+
+.kodara-lesson-section {
+  scroll-margin-top: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-card-subtle, rgba(255, 94, 30, 0.18));
+}
+
+.kodara-lesson-section:last-child {
+  border-bottom: none;
+}
+
+.kodara-lesson-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kodara-lesson-section__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+.kodara-lesson-section__complete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-card-subtle, rgba(255, 94, 30, 0.18));
+  background: #FAF8F5;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kodara-lesson-section__complete-btn:hover {
+  border-color: #16A34A;
+  color: #16A34A;
+  background: #F0FDF4;
+}
+
+.kodara-lesson-section__complete-btn--done {
+  border-color: #16A34A;
+  color: #16A34A;
+  background: #F0FDF4;
+}

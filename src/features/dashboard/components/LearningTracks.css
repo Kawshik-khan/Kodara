@@ -1,0 +1,143 @@
+.learning-tracks-card {
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card, 14px);
+  padding: 16px 20px 20px 20px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.learning-tracks-card:hover {
+  border-color: var(--border-card-hover);
+  box-shadow: var(--shadow-card-glow);
+}
+
+.learning-tracks-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.learning-tracks-card__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.learning-tracks-card__view-all {
+  font-size: 12px;
+  font-weight: 600;
+  color: #FF5E1E;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.learning-tracks-card__view-all:hover {
+  opacity: 0.8;
+}
+
+.learning-tracks-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.learning-track-card {
+  background-color: #FAF8F5;
+  border: 1px solid var(--border-card-subtle);
+  border-radius: 8px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.learning-track-card:hover {
+  background-color: #FFF6F2;
+  border-color: #FF5E1E;
+  box-shadow: 0 2px 8px rgba(255, 94, 30, 0.1);
+  transform: translateY(-1px);
+}
+
+.learning-track-card__icon-wrap {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.learning-track-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.learning-track-card__title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.learning-track-card__percent {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.learning-track-card__chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+
+.learning-track-card:hover .learning-track-card__chevron {
+  color: #FF5E1E;
+  transform: translateX(2px);
+  opacity: 1;
+}
+
+/* 6th Card: Teaser */
+.learning-track-teaser {
+  background-color: #FAF8F5;
+  border: 1px solid var(--border-card-subtle);
+  border-radius: 8px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.learning-track-teaser__grid {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.learning-track-teaser__text {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+@media (max-width: 600px) {
+  .learning-tracks-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

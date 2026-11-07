@@ -1,0 +1,60 @@
+.hl-streak {
+  display: flex;
+  padding-top: 12px;
+  border-top: 1px solid #F5F3EF;
+}
+
+.hl-streak__day {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Joins this day's node to the previous day's node (one column to the left). */
+.hl-streak__link {
+  position: absolute;
+  top: 7px;
+  right: 50%;
+  width: 100%;
+  height: 0;
+  border-top: 1px dashed var(--hl-neutral-soft);
+}
+
+.hl-streak__link--on {
+  border-top: 1px solid var(--hl-ink);
+}
+
+.hl-streak__node {
+  position: relative;
+  z-index: 1;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background-color: var(--hl-paper);
+  box-sizing: border-box;
+}
+
+.hl-streak__node--done {
+  border: 1px solid var(--hl-ink);
+}
+
+.hl-streak__node--done::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 999px;
+  background-color: var(--hl-ink);
+}
+
+.hl-streak__node--pending {
+  border: 1px dashed var(--hl-neutral);
+}
+
+.hl-streak__label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}

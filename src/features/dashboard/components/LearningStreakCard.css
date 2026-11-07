@@ -1,0 +1,67 @@
+.learning-streak-card {
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card, 14px);
+  padding: 16px 20px 20px 20px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.learning-streak-card:hover {
+  border-color: var(--border-card-hover);
+  box-shadow: var(--shadow-card-glow);
+}
+
+.learning-streak-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.learning-streak-card__icon-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background-color: #FFF1EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.learning-streak-card__header-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.learning-streak-card__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  gap: 16px;
+}
+
+.learning-streak-card__stat-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.learning-streak-card__days {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.learning-streak-card__status {
+  font-size: 12px;
+  color: var(--text-secondary);
+}

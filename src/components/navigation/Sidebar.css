@@ -1,0 +1,168 @@
+.kodara-sidebar {
+  width: 250px;
+  background-color: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  padding: 18px 14px;
+  height: calc(100vh - 32px);
+  position: sticky;
+  top: 16px;
+  margin: 16px 0 16px 16px;
+  transition: width var(--transition-fast);
+  z-index: var(--z-sticky);
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.kodara-sidebar--collapsed {
+  width: 72px;
+  padding: 16px 8px;
+}
+
+.kodara-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-light, #ebebeb);
+  margin-bottom: var(--space-3);
+}
+
+.kodara-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.kodara-sidebar__logo-box {
+  width: 34px;
+  height: 34px;
+  background-color: var(--accent-primary, #ff5e1e);
+  color: #ffffff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kodara-sidebar__brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.kodara-sidebar__brand-title {
+  font-size: var(--text-lg);
+  font-weight: 800;
+  color: var(--accent-primary, #ff5e1e);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.kodara-sidebar__brand-subtitle {
+  font-size: 10px;
+  color: var(--text-muted, #8c8c8c);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.kodara-sidebar__collapse-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all var(--transition-fast);
+}
+
+.kodara-sidebar__collapse-btn:hover {
+  background-color: var(--bg-surface-muted);
+  color: var(--text-primary);
+}
+
+.kodara-sidebar__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.kodara-sidebar__section {
+  display: flex;
+  flex-direction: column;
+}
+
+.kodara-sidebar__section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #8c8c8c);
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+  padding: var(--space-2) 12px 4px;
+}
+
+.kodara-sidebar__section-items {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Bottom Callout Card: Keep learning */
+.kodara-sidebar__callout {
+  margin-top: auto;
+  padding: 12px 10px;
+  background-color: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-card-subtle);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.kodara-sidebar__callout:hover {
+  border-color: var(--border-card-hover);
+  box-shadow: var(--shadow-card-glow);
+}
+
+.kodara-sidebar__callout-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.kodara-sidebar__callout-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.kodara-sidebar__callout-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.kodara-sidebar__callout-desc {
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .kodara-sidebar {
+    display: none;
+  }
+}

@@ -1,0 +1,2706 @@
+{
+ "source": "\"\"\"Chapter 02: a tool call is a proposal; an action is an authorized transition.\"\"\"\nfrom dataclasses import dataclass, field\nfrom enum import Enum\n\n\nclass S(Enum):\n    PROPOSED = \"PROPOSED\"\n    VALIDATED = \"VALIDATED\"\n    AUTHORIZED = \"AUTHORIZED\"\n    WAITING_APPROVAL = \"WAITING_APPROVAL\"\n    PREPARED = \"PREPARED\"\n    DISPATCHED = \"DISPATCHED\"\n    UNKNOWN_EFFECT = \"UNKNOWN_EFFECT\"\n    OBSERVED = \"OBSERVED\"\n    RECONCILED = \"RECONCILED\"\n    VERIFIED = \"VERIFIED\"\n    COMMITTED = \"COMMITTED\"\n    ESCALATED = \"ESCALATED\"\n\n\nLEGAL = {\n    S.PROPOSED: {S.VALIDATED},\n    S.VALIDATED: {S.AUTHORIZED, S.WAITING_APPROVAL},\n    S.AUTHORIZED: {S.PREPARED},\n    S.PREPARED: {S.DISPATCHED},\n    S.DISPATCHED: {S.OBSERVED, S.UNKNOWN_EFFECT},\n    S.OBSERVED: {S.RECONCILED},\n    S.UNKNOWN_EFFECT: {S.RECONCILED, S.ESCALATED},\n    S.RECONCILED: {S.VERIFIED},\n    S.VERIFIED: {S.COMMITTED},\n}\n\n\nclass Timeout(Exception):\n    \"\"\"Dispatch happened; the response did not come back.\"\"\"\n\n\nclass PaymentProvider:\n    \"\"\"The authoritative external system. It owns the truth about refunds.\"\"\"\n\n    def __init__(self, lose_first_ack=False):\n        self.ledger = {}                 # key -> amount\n        self.lose_ack = lose_first_ack\n\n    def refund(self, key, amount):\n        self.ledger.setdefault(key, amount)   # same key, one effect\n        if self.lose_ack:\n            self.lose_ack = False\n            raise Timeout(\"connection reset after commit\")\n        return \"refunded\"\n\n    def lookup(self, key):\n        return self.ledger.get(key)\n\n\n@dataclass\nclass Operation:\n    case: str\n    amount: float\n    state: S = S.PROPOSED\n    key: str | None = None\n    log: list = field(default_factory=list)\n\n    def move(self, to, note=\"\"):\n        if to not in LEGAL.get(self.state, set()):\n            raise RuntimeError(f\"illegal {self.state.value} -> {to.value}\")\n        self.log.append(f\"{self.state.value:>14} -> {to.value:<16} {note}\")\n        self.state = to\n\n\nclass Harness:\n    CEILING = 100.0   # autonomous refunds must stay below EUR 100\n\n    def __init__(self, provider):\n        self.provider = provider\n\n    def run(self, op, case_version=17):\n        op.move(S.VALIDATED, \"schema, bound account, ledger match\")\n        if op.amount >= self.CEILING:\n            return op.move(S.WAITING_APPROVAL, \"approval_required: frozen preview to human\")\n        op.move(S.AUTHORIZED, \"grant refund.write < EUR 100\")\n\n        op.key = f\"refund-case-{op.case}-v{case_version}\"  # persisted before dispatch\n        op.move(S.PREPARED, f\"key={op.key}\")\n        op.move(S.DISPATCHED)\n        try:\n            self.provider.refund(op.key, op.amount)\n            op.move(S.OBSERVED, \"200 OK is transport status only\")\n        except Timeout as err:\n            op.move(S.UNKNOWN_EFFECT, f\"{err}: reconcile, do not retry\")\n\n        found = self.provider.lookup(op.key)              # same key, authoritative read\n        if found is None:\n            return op.move(S.ESCALATED, \"no effect after finality window\")\n        op.move(S.RECONCILED, f\"ledger holds 1 refund of EUR {found:.2f}\")\n        op.move(S.VERIFIED, \"effect + message + case version bound\")\n        op.move(S.COMMITTED)\n\n\ndef naive_retry(provider, case, amount):\n    \"\"\"'Retry three times': every attempt mints a fresh id.\"\"\"\n    for attempt in range(1, 4):\n        try:\n            return provider.refund(f\"{case}-attempt-{attempt}\", amount)\n        except Timeout:\n            continue\n\n\nif __name__ == \"__main__\":\n    for title, amount in [(\"harness, ack lost\", 42.0), (\"harness, EUR 140\", 140.0)]:\n        provider = PaymentProvider(lose_first_ack=True)\n        op = Operation(case=\"882\", amount=amount)\n        Harness(provider).run(op)\n        print(f\"# {title}\\n\" + \"\\n\".join(op.log))\n        print(f\"final={op.state.value} refunds={len(provider.ledger)}\\n\")\n\n    provider = PaymentProvider(lose_first_ack=True)\n    naive_retry(provider, \"882\", 42.0)\n    print(f\"# naive retry, ack lost\\nrefunds={len(provider.ledger)} {provider.ledger}\")",
+ "sourcePath": "harness/ch02/aci_refund.py",
+ "python": "3.14.7",
+ "scenarios": {
+  "ack": [
+   {
+    "line": 75,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.__init__",
+      "line": 75,
+      "locals": {
+       "provider": "PaymentProvider()"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.PROPOSED",
+      "key": null,
+      "log": []
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 78,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 78,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.PROPOSED",
+      "key": null,
+      "log": []
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 65,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 78,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 65,
+      "locals": {
+       "to": "S.VALIDATED",
+       "note": "'schema, bound account, ledger match'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.PROPOSED",
+      "key": null,
+      "log": []
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 67,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 78,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 67,
+      "locals": {
+       "to": "S.VALIDATED",
+       "note": "'schema, bound account, ledger match'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.PROPOSED",
+      "key": null,
+      "log": []
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 68,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 78,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 68,
+      "locals": {
+       "to": "S.VALIDATED",
+       "note": "'schema, bound account, ledger match'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.PROPOSED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 79,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 79,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.VALIDATED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 81,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 81,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.VALIDATED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 65,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 81,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 65,
+      "locals": {
+       "to": "S.AUTHORIZED",
+       "note": "'grant refund.write < EUR 100'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.VALIDATED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 67,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 81,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 67,
+      "locals": {
+       "to": "S.AUTHORIZED",
+       "note": "'grant refund.write < EUR 100'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.VALIDATED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 68,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 81,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 68,
+      "locals": {
+       "to": "S.AUTHORIZED",
+       "note": "'grant refund.write < EUR 100'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.VALIDATED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 83,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 83,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.AUTHORIZED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 84,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 84,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.AUTHORIZED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 65,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 84,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 65,
+      "locals": {
+       "to": "S.PREPARED",
+       "note": "'key=refund-case-882-v17'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.AUTHORIZED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 67,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 84,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 67,
+      "locals": {
+       "to": "S.PREPARED",
+       "note": "'key=refund-case-882-v17'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.AUTHORIZED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 68,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 84,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 68,
+      "locals": {
+       "to": "S.PREPARED",
+       "note": "'key=refund-case-882-v17'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.AUTHORIZED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 85,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 85,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.PREPARED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 65,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 85,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 65,
+      "locals": {
+       "to": "S.DISPATCHED",
+       "note": "''"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.PREPARED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 67,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 85,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 67,
+      "locals": {
+       "to": "S.DISPATCHED",
+       "note": "''"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.PREPARED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 68,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 85,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 68,
+      "locals": {
+       "to": "S.DISPATCHED",
+       "note": "''"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.PREPARED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 86,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 86,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 87,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 87,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 87,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 46,
+      "locals": {
+       "key": "'refund-case-882-v17'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 87,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 47,
+      "locals": {
+       "key": "'refund-case-882-v17'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 87,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 48,
+      "locals": {
+       "key": "'refund-case-882-v17'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 87,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 49,
+      "locals": {
+       "key": "'refund-case-882-v17'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "exception",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 87,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 49,
+      "locals": {
+       "key": "'refund-case-882-v17'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    },
+    "detail": "Timeout('connection reset after commit')"
+   },
+   {
+    "line": 87,
+    "event": "exception",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 87,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    },
+    "detail": "Timeout('connection reset after commit')"
+   },
+   {
+    "line": 89,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 89,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 90,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 90,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "err": "Timeout('connection reset after commit')"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 65,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 90,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "err": "Timeout('connection reset after commit')"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 65,
+      "locals": {
+       "to": "S.UNKNOWN_EFFECT",
+       "note": "'connection reset after commit: reconcile, do not retry'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 67,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 90,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "err": "Timeout('connection reset after commit')"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 67,
+      "locals": {
+       "to": "S.UNKNOWN_EFFECT",
+       "note": "'connection reset after commit: reconcile, do not retry'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       "
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 68,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 90,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "err": "Timeout('connection reset after commit')"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 68,
+      "locals": {
+       "to": "S.UNKNOWN_EFFECT",
+       "note": "'connection reset after commit: reconcile, do not retry'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.DISPATCHED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 92,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 92,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.UNKNOWN_EFFECT",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 53,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 92,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "PaymentProvider.lookup",
+      "line": 53,
+      "locals": {
+       "key": "'refund-case-882-v17'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.UNKNOWN_EFFECT",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 53,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 92,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "PaymentProvider.lookup",
+      "line": 53,
+      "locals": {
+       "key": "'refund-case-882-v17'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.UNKNOWN_EFFECT",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    },
+    "detail": "42.0"
+   },
+   {
+    "line": 93,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 93,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.UNKNOWN_EFFECT",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 95,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 95,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.UNKNOWN_EFFECT",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 65,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 95,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 65,
+      "locals": {
+       "to": "S.RECONCILED",
+       "note": "'ledger holds 1 refund of EUR 42.00'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.UNKNOWN_EFFECT",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 67,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 95,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 67,
+      "locals": {
+       "to": "S.RECONCILED",
+       "note": "'ledger holds 1 refund of EUR 42.00'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.UNKNOWN_EFFECT",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 68,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 95,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 68,
+      "locals": {
+       "to": "S.RECONCILED",
+       "note": "'ledger holds 1 refund of EUR 42.00'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.UNKNOWN_EFFECT",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry",
+       "UNKNOWN_EFFECT -> RECONCILED       ledger holds 1 refund of EUR 42.00"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 96,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 96,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.RECONCILED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry",
+       "UNKNOWN_EFFECT -> RECONCILED       ledger holds 1 refund of EUR 42.00"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 65,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 96,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 65,
+      "locals": {
+       "to": "S.VERIFIED",
+       "note": "'effect + message + case version bound'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.RECONCILED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry",
+       "UNKNOWN_EFFECT -> RECONCILED       ledger holds 1 refund of EUR 42.00"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 67,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 96,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 67,
+      "locals": {
+       "to": "S.VERIFIED",
+       "note": "'effect + message + case version bound'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.RECONCILED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry",
+       "UNKNOWN_EFFECT -> RECONCILED       ledger holds 1 refund of EUR 42.00"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 68,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 96,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 68,
+      "locals": {
+       "to": "S.VERIFIED",
+       "note": "'effect + message + case version bound'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.RECONCILED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry",
+       "UNKNOWN_EFFECT -> RECONCILED       ledger holds 1 refund of EUR 42.00",
+       "    RECONCILED -> VERIFIED         effect + message + case version bound"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 97,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 97,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.VERIFIED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry",
+       "UNKNOWN_EFFECT -> RECONCILED       ledger holds 1 refund of EUR 42.00",
+       "    RECONCILED -> VERIFIED         effect + message + case version bound"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 65,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 97,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 65,
+      "locals": {
+       "to": "S.COMMITTED",
+       "note": "''"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.VERIFIED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry",
+       "UNKNOWN_EFFECT -> RECONCILED       ledger holds 1 refund of EUR 42.00",
+       "    RECONCILED -> VERIFIED         effect + message + case version bound"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 67,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 97,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 67,
+      "locals": {
+       "to": "S.COMMITTED",
+       "note": "''"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.VERIFIED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry",
+       "UNKNOWN_EFFECT -> RECONCILED       ledger holds 1 refund of EUR 42.00",
+       "    RECONCILED -> VERIFIED         effect + message + case version bound"
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 68,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 97,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17",
+       "found": "42.0"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 68,
+      "locals": {
+       "to": "S.COMMITTED",
+       "note": "''"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 42.0,
+      "state": "S.VERIFIED",
+      "key": "refund-case-882-v17",
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> AUTHORIZED       grant refund.write < EUR 100",
+       "    AUTHORIZED -> PREPARED         key=refund-case-882-v17",
+       "      PREPARED -> DISPATCHED       ",
+       "    DISPATCHED -> UNKNOWN_EFFECT   connection reset after commit: reconcile, do not retry",
+       "UNKNOWN_EFFECT -> RECONCILED       ledger holds 1 refund of EUR 42.00",
+       "    RECONCILED -> VERIFIED         effect + message + case version bound",
+       "      VERIFIED -> COMMITTED        "
+      ]
+     },
+     "provider": {
+      "ledger": {
+       "refund-case-882-v17": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   }
+  ],
+  "limit": [
+   {
+    "line": 75,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.__init__",
+      "line": 75,
+      "locals": {
+       "provider": "PaymentProvider()"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 140.0,
+      "state": "S.PROPOSED",
+      "key": null,
+      "log": []
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 78,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 78,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 140.0,
+      "state": "S.PROPOSED",
+      "key": null,
+      "log": []
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 65,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 78,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 65,
+      "locals": {
+       "to": "S.VALIDATED",
+       "note": "'schema, bound account, ledger match'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 140.0,
+      "state": "S.PROPOSED",
+      "key": null,
+      "log": []
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 67,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 78,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 67,
+      "locals": {
+       "to": "S.VALIDATED",
+       "note": "'schema, bound account, ledger match'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 140.0,
+      "state": "S.PROPOSED",
+      "key": null,
+      "log": []
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 68,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 78,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 68,
+      "locals": {
+       "to": "S.VALIDATED",
+       "note": "'schema, bound account, ledger match'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 140.0,
+      "state": "S.PROPOSED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 79,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 79,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 140.0,
+      "state": "S.VALIDATED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 80,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 80,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 140.0,
+      "state": "S.VALIDATED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 65,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 80,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 65,
+      "locals": {
+       "to": "S.WAITING_APPROVAL",
+       "note": "'approval_required: frozen preview to human'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 140.0,
+      "state": "S.VALIDATED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 67,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 80,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 67,
+      "locals": {
+       "to": "S.WAITING_APPROVAL",
+       "note": "'approval_required: frozen preview to human'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 140.0,
+      "state": "S.VALIDATED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 68,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "Harness.run",
+      "line": 80,
+      "locals": {
+       "op": "Operation(case='882')",
+       "case_version": "17"
+      }
+     },
+     {
+      "fn": "Operation.move",
+      "line": 68,
+      "locals": {
+       "to": "S.WAITING_APPROVAL",
+       "note": "'approval_required: frozen preview to human'"
+      }
+     }
+    ],
+    "objects": {
+     "op": {
+      "case": "882",
+      "amount": 140.0,
+      "state": "S.VALIDATED",
+      "key": null,
+      "log": [
+       "      PROPOSED -> VALIDATED        schema, bound account, ledger match",
+       "     VALIDATED -> WAITING_APPROVAL approval_required: frozen preview to human"
+      ]
+     },
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   }
+  ],
+  "naive": [
+   {
+    "line": 102,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 102,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 103,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 103,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "1"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 104,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "1"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "1"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 46,
+      "locals": {
+       "key": "'882-attempt-1'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {},
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "1"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 47,
+      "locals": {
+       "key": "'882-attempt-1'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0
+      },
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "1"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 48,
+      "locals": {
+       "key": "'882-attempt-1'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0
+      },
+      "lose_ack": true
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "1"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 49,
+      "locals": {
+       "key": "'882-attempt-1'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "exception",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "1"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 49,
+      "locals": {
+       "key": "'882-attempt-1'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0
+      },
+      "lose_ack": false
+     }
+    },
+    "detail": "Timeout('connection reset after commit')"
+   },
+   {
+    "line": 104,
+    "event": "exception",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "1"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0
+      },
+      "lose_ack": false
+     }
+    },
+    "detail": "Timeout('connection reset after commit')"
+   },
+   {
+    "line": 105,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 105,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "1"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 106,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 106,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "1"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 102,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 102,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "1"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 103,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 103,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "2"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 104,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "2"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "2"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 46,
+      "locals": {
+       "key": "'882-attempt-2'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "2"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 47,
+      "locals": {
+       "key": "'882-attempt-2'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0,
+       "882-attempt-2": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "2"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 50,
+      "locals": {
+       "key": "'882-attempt-2'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0,
+       "882-attempt-2": 42.0
+      },
+      "lose_ack": false
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "2"
+      }
+     },
+     {
+      "fn": "PaymentProvider.refund",
+      "line": 50,
+      "locals": {
+       "key": "'882-attempt-2'",
+       "amount": "42.0"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0,
+       "882-attempt-2": 42.0
+      },
+      "lose_ack": false
+     }
+    },
+    "detail": "'refunded'"
+   },
+   {
+    "line": 104,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "naive_retry",
+      "line": 104,
+      "locals": {
+       "provider": "PaymentProvider()",
+       "case": "'882'",
+       "amount": "42.0",
+       "attempt": "2"
+      }
+     }
+    ],
+    "objects": {
+     "provider": {
+      "ledger": {
+       "882-attempt-1": 42.0,
+       "882-attempt-2": 42.0
+      },
+      "lose_ack": false
+     }
+    },
+    "detail": "'refunded'"
+   }
+  ]
+ }
+}

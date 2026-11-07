@@ -1,0 +1,3587 @@
+{
+ "source": "\"\"\"Chapter 00: the harness as a control loop with a gate and typed stops.\"\"\"\nfrom dataclasses import dataclass, field\nfrom enum import Enum\n\n\nclass Stop(Enum):\n    COMPLETE = \"complete\"\n    ABSTAIN = \"abstain\"\n    ESCALATE = \"escalate\"\n    BUDGET_EXHAUSTED = \"budget_exhausted\"\n    POLICY_DENIED = \"policy_denied\"\n\n\n@dataclass(frozen=True)\nclass Grant:\n    \"\"\"Warranted autonomy: qualified tasks, permissions, conditions, recoverability.\"\"\"\n    qualified_tasks: frozenset\n    permissions: frozenset\n    conditions_ok: bool\n    recoverable: frozenset\n\n    def admits(self, task, action):\n        if task not in self.qualified_tasks:\n            return Stop.ABSTAIN\n        if action not in self.permissions:\n            return Stop.POLICY_DENIED\n        if not self.conditions_ok:\n            return Stop.ABSTAIN\n        if action not in self.recoverable:\n            return Stop.ESCALATE\n        return None\n\n\n@dataclass\nclass Run:\n    task: str\n    budget: int\n    state: dict = field(default_factory=dict)\n    trail: list = field(default_factory=list)\n\n\ndef control_loop(run, model, grant, tools, verify):\n    while run.budget > 0:\n        context = {\"task\": run.task, \"facts\": dict(run.state)}  # c_t = Context(s_t)\n        action, args = model(context)                         # z_t ~ Model(c_t)\n        if action == \"done\":\n            if verify(run.state):                             # check the world, not the sentence\n                return finish(run, Stop.COMPLETE)\n            run.trail.append(\"claimed done without evidence\")\n            run.budget -= 1\n            continue\n        verdict = grant.admits(run.task, action)              # a_t = Gate(z_t)\n        if verdict is not None:\n            return finish(run, verdict)\n        observation = tools[action](**args)                   # o_t = Execute(a_t)\n        run.state[action] = observation                       # s_t+1 = Update(s_t, a_t, o_t)\n        run.trail.append(f\"{action} -> {observation}\")\n        run.budget -= 1\n    return finish(run, Stop.BUDGET_EXHAUSTED)\n\n\ndef finish(run, stop):\n    run.trail.append(f\"STOP {stop.value}\")\n    return stop\n\n\ndef scripted(*moves):\n    \"\"\"A stand-in for the model: proposes the given moves in order.\"\"\"\n    queue = list(moves)\n    return lambda context: queue.pop(0) if queue else (\"done\", {})\n\n\nLEDGER = {\"882\": [42.0, 42.0]}\nTOOLS = {\n    \"read_ledger\": lambda case: LEDGER[case],\n    \"refund\": lambda case, amount: f\"refunded {amount}\",\n}\nGRANT = Grant(\n    qualified_tasks=frozenset({\"explain_charge\", \"resolve_duplicate\"}),\n    permissions=frozenset({\"read_ledger\", \"refund\"}),\n    conditions_ok=True,\n    recoverable=frozenset({\"read_ledger\"}),\n)\n\n\ndef ledger_was_read(state):\n    return \"read_ledger\" in state\n\n\nif __name__ == \"__main__\":\n    runs = {\n        \"verified\": (Run(\"explain_charge\", 4), scripted((\"read_ledger\", {\"case\": \"882\"}), (\"done\", {}))),\n        \"premature\": (Run(\"explain_charge\", 2), scripted((\"done\", {}), (\"done\", {}))),\n        \"payment\": (Run(\"resolve_duplicate\", 4), scripted((\"read_ledger\", {\"case\": \"882\"}),\n                                                          (\"refund\", {\"case\": \"882\", \"amount\": 42.0}))),\n    }\n    for name, (run, model) in runs.items():\n        stop = control_loop(run, model, GRANT, TOOLS, ledger_was_read)\n        print(f\"# {name}: {stop.name}\")\n        print(\"\\n\".join(f\"  {line}\" for line in run.trail))",
+ "sourcePath": "harness/ch00/control_loop.py",
+ "python": "3.14.7",
+ "scenarios": {
+  "verified": [
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 43,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 44,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 45,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "queue": "[('read_ledger', {'case': '882'}), ('done', {})]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "queue": "[('done', {})]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    },
+    "detail": "('read_ledger', {'case': '882'})"
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 46,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 52,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 23,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 23,
+      "locals": {
+       "task": "'explain_charge'",
+       "action": "'read_ledger'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 25,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 25,
+      "locals": {
+       "task": "'explain_charge'",
+       "action": "'read_ledger'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 27,
+      "locals": {
+       "task": "'explain_charge'",
+       "action": "'read_ledger'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 29,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 29,
+      "locals": {
+       "task": "'explain_charge'",
+       "action": "'read_ledger'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 31,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 31,
+      "locals": {
+       "task": "'explain_charge'",
+       "action": "'read_ledger'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 53,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 53,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 55,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 55,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 75,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 55,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None"
+      }
+     },
+     {
+      "fn": "<lambda>",
+      "line": 75,
+      "locals": {
+       "case": "'882'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 75,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 55,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None"
+      }
+     },
+     {
+      "fn": "<lambda>",
+      "line": 75,
+      "locals": {
+       "case": "'882'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    },
+    "detail": "[42.0, 42.0]"
+   },
+   {
+    "line": 56,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 56,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 57,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 58,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 58,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 4,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 43,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 44,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 45,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "queue": "[('done', {})]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "queue": "[]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    },
+    "detail": "('done', {})"
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 46,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'done'",
+       "args": "{}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 47,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'done'",
+       "args": "{}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 87,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 47,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'done'",
+       "args": "{}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "ledger_was_read",
+      "line": 87,
+      "locals": {
+       "state": "{'read_ledger': [42.0, 42.0]}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 87,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 47,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'done'",
+       "args": "{}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "ledger_was_read",
+      "line": 87,
+      "locals": {
+       "state": "{'read_ledger': [42.0, 42.0]}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    },
+    "detail": "True"
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 48,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'done'",
+       "args": "{}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 63,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 48,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'done'",
+       "args": "{}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "finish",
+      "line": 63,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "stop": "Stop.COMPLETE"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 64,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 48,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'done'",
+       "args": "{}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "finish",
+      "line": 64,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "stop": "Stop.COMPLETE"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]",
+       "STOP complete"
+      ]
+     }
+    }
+   },
+   {
+    "line": 64,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 48,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'done'",
+       "args": "{}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "finish",
+      "line": 64,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "stop": "Stop.COMPLETE"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]",
+       "STOP complete"
+      ]
+     }
+    },
+    "detail": "Stop.COMPLETE"
+   },
+   {
+    "line": 48,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 48,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {'read_ledger': [42.0...",
+       "action": "'done'",
+       "args": "{}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]",
+       "STOP complete"
+      ]
+     }
+    },
+    "detail": "Stop.COMPLETE"
+   }
+  ],
+  "premature": [
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 43,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 2,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 44,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 2,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 45,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 2,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "queue": "[('done', {}), ('done', {})]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 2,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "queue": "[('done', {})]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 2,
+      "state": {},
+      "trail": []
+     }
+    },
+    "detail": "('done', {})"
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 46,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 2,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 47,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 2,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 87,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 47,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     },
+     {
+      "fn": "ledger_was_read",
+      "line": 87,
+      "locals": {
+       "state": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 2,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 87,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 47,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     },
+     {
+      "fn": "ledger_was_read",
+      "line": 87,
+      "locals": {
+       "state": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 2,
+      "state": {},
+      "trail": []
+     }
+    },
+    "detail": "False"
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 49,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 2,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 50,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 2,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 51,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 51,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 43,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 44,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 45,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "queue": "[('done', {})]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "queue": "[]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    },
+    "detail": "('done', {})"
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 46,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 47,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 87,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 47,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     },
+     {
+      "fn": "ledger_was_read",
+      "line": 87,
+      "locals": {
+       "state": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 87,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 47,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     },
+     {
+      "fn": "ledger_was_read",
+      "line": 87,
+      "locals": {
+       "state": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    },
+    "detail": "False"
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 49,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 50,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 1,
+      "state": {},
+      "trail": [
+       "claimed done without evidence",
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 51,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 51,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 0,
+      "state": {},
+      "trail": [
+       "claimed done without evidence",
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 43,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 0,
+      "state": {},
+      "trail": [
+       "claimed done without evidence",
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 59,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 59,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 0,
+      "state": {},
+      "trail": [
+       "claimed done without evidence",
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 63,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 59,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     },
+     {
+      "fn": "finish",
+      "line": 63,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "stop": "Stop.BUDGET_EXHAUSTED"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 0,
+      "state": {},
+      "trail": [
+       "claimed done without evidence",
+       "claimed done without evidence"
+      ]
+     }
+    }
+   },
+   {
+    "line": 64,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 59,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     },
+     {
+      "fn": "finish",
+      "line": 64,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "stop": "Stop.BUDGET_EXHAUSTED"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 0,
+      "state": {},
+      "trail": [
+       "claimed done without evidence",
+       "claimed done without evidence",
+       "STOP budget_exhausted"
+      ]
+     }
+    }
+   },
+   {
+    "line": 64,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 59,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     },
+     {
+      "fn": "finish",
+      "line": 64,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "stop": "Stop.BUDGET_EXHAUSTED"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 0,
+      "state": {},
+      "trail": [
+       "claimed done without evidence",
+       "claimed done without evidence",
+       "STOP budget_exhausted"
+      ]
+     }
+    },
+    "detail": "Stop.BUDGET_EXHAUSTED"
+   },
+   {
+    "line": 59,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 59,
+      "locals": {
+       "run": "Run(task='explain_charge')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'explain_charge', 'facts': {}}",
+       "action": "'done'",
+       "args": "{}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "explain_charge",
+      "budget": 0,
+      "state": {},
+      "trail": [
+       "claimed done without evidence",
+       "claimed done without evidence",
+       "STOP budget_exhausted"
+      ]
+     }
+    },
+    "detail": "Stop.BUDGET_EXHAUSTED"
+   }
+  ],
+  "payment": [
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 43,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 44,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 45,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "queue": "[('read_ledger', {'case': '882'}), ('refund', {'case': '8..."
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "queue": "[('refund', {'case': '882', 'amount': 42.0})]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    },
+    "detail": "('read_ledger', {'case': '882'})"
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 46,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 52,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 23,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 23,
+      "locals": {
+       "task": "'resolve_duplicate'",
+       "action": "'read_ledger'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 25,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 25,
+      "locals": {
+       "task": "'resolve_duplicate'",
+       "action": "'read_ledger'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 27,
+      "locals": {
+       "task": "'resolve_duplicate'",
+       "action": "'read_ledger'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 29,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 29,
+      "locals": {
+       "task": "'resolve_duplicate'",
+       "action": "'read_ledger'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 31,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 31,
+      "locals": {
+       "task": "'resolve_duplicate'",
+       "action": "'read_ledger'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 53,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 53,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 55,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 55,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 75,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 55,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None"
+      }
+     },
+     {
+      "fn": "<lambda>",
+      "line": 75,
+      "locals": {
+       "case": "'882'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 75,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 55,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None"
+      }
+     },
+     {
+      "fn": "<lambda>",
+      "line": 75,
+      "locals": {
+       "case": "'882'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    },
+    "detail": "[42.0, 42.0]"
+   },
+   {
+    "line": 56,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 56,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {},
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 57,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": []
+     }
+    }
+   },
+   {
+    "line": 58,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 58,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 4,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 43,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 44,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {}}",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 45,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "queue": "[('refund', {'case': '882', 'amount': 42.0})]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 45,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'read_ledger'",
+       "args": "{'case': '882'}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "scripted.<locals>.<lambda>",
+      "line": 70,
+      "locals": {
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "queue": "[]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    },
+    "detail": "('refund', {'case': '882', 'amount': 42.0})"
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 46,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 52,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 23,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 23,
+      "locals": {
+       "task": "'resolve_duplicate'",
+       "action": "'refund'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 25,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 25,
+      "locals": {
+       "task": "'resolve_duplicate'",
+       "action": "'refund'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 27,
+      "locals": {
+       "task": "'resolve_duplicate'",
+       "action": "'refund'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 29,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 29,
+      "locals": {
+       "task": "'resolve_duplicate'",
+       "action": "'refund'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 30,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 30,
+      "locals": {
+       "task": "'resolve_duplicate'",
+       "action": "'refund'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 30,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 52,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "None",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "Grant.admits",
+      "line": 30,
+      "locals": {
+       "task": "'resolve_duplicate'",
+       "action": "'refund'"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    },
+    "detail": "Stop.ESCALATE"
+   },
+   {
+    "line": 53,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 53,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "Stop.ESCALATE",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 54,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 54,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "Stop.ESCALATE",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 63,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 54,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "Stop.ESCALATE",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "finish",
+      "line": 63,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "stop": "Stop.ESCALATE"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]"
+      ]
+     }
+    }
+   },
+   {
+    "line": 64,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 54,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "Stop.ESCALATE",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "finish",
+      "line": 64,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "stop": "Stop.ESCALATE"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]",
+       "STOP escalate"
+      ]
+     }
+    }
+   },
+   {
+    "line": 64,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 54,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "Stop.ESCALATE",
+       "observation": "[42.0, 42.0]"
+      }
+     },
+     {
+      "fn": "finish",
+      "line": 64,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "stop": "Stop.ESCALATE"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]",
+       "STOP escalate"
+      ]
+     }
+    },
+    "detail": "Stop.ESCALATE"
+   },
+   {
+    "line": 54,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "control_loop",
+      "line": 54,
+      "locals": {
+       "run": "Run(task='resolve_duplicate')",
+       "model": "<function scripted.<locals>.<lambda>>",
+       "grant": "Grant(qualified_tasks=frozenset({'explain_charge', 'resol...",
+       "tools": "{'read_ledger': <function <lambda>>, 'refund': <function ...",
+       "verify": "<function ledger_was_read>",
+       "context": "{'task': 'resolve_duplicate', 'facts': {'read_ledger': [4...",
+       "action": "'refund'",
+       "args": "{'case': '882', 'amount': 42.0}",
+       "verdict": "Stop.ESCALATE",
+       "observation": "[42.0, 42.0]"
+      }
+     }
+    ],
+    "objects": {
+     "run": {
+      "task": "resolve_duplicate",
+      "budget": 3,
+      "state": {
+       "read_ledger": [
+        42.0,
+        42.0
+       ]
+      },
+      "trail": [
+       "read_ledger -> [42.0, 42.0]",
+       "STOP escalate"
+      ]
+     }
+    },
+    "detail": "Stop.ESCALATE"
+   }
+  ]
+ }
+}

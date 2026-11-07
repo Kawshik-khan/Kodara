@@ -1,0 +1,115 @@
+.kodara-challenge-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(255, 94, 30, 0.4);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+}
+
+.kodara-challenge-card:hover {
+  border-color: #FF5E1E;
+  box-shadow: 0 10px 30px rgba(255, 94, 30, 0.12);
+}
+
+.kodara-challenge-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kodara-challenge-card__tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #FF5E1E;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.kodara-challenge-card__passed {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #16A34A;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.kodara-challenge-card__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.kodara-challenge-card__desc {
+  font-size: 0.9rem;
+  color: #4B5563;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.kodara-challenge-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+
+.kodara-challenge-card__diff-pill {
+  background: rgba(255, 94, 30, 0.1);
+  color: #FF5E1E;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 12px;
+  text-transform: capitalize;
+}
+
+.kodara-challenge-card__time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #6B7280;
+}
+
+.kodara-challenge-card__concepts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kodara-challenge-card__concept {
+  background: #F3F4F6;
+  color: #374151;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.kodara-challenge-card__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #FF5E1E;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.2s;
+}
+
+.kodara-challenge-card__btn:hover {
+  background: #E04D10;
+}

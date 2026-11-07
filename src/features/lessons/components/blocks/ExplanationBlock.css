@@ -1,0 +1,45 @@
+.kodara-explanation {
+  margin: var(--space-4) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kodara-explanation__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.kodara-explanation__content {
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.kodara-explanation__key-idea {
+  background: #FFF8F5;
+  border-left: 3px solid #FF5E1E;
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kodara-explanation__key-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #FF5E1E;
+}
+
+.kodara-explanation__key-text {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.45;
+}

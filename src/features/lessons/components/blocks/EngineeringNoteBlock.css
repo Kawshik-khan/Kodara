@@ -1,0 +1,53 @@
+.kodara-eng-note {
+  background: #ffffff;
+  border: 1px solid var(--border-card, rgba(255, 94, 30, 0.35));
+  border-radius: var(--radius-card, 14px);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-card);
+  margin: var(--space-4) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kodara-eng-note__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kodara-eng-note__badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #FF5E1E;
+  background: #FFF1EB;
+  border: 1px solid rgba(255, 94, 30, 0.3);
+  border-radius: 4px;
+  padding: 2px 7px;
+  text-transform: uppercase;
+}
+
+.kodara-eng-note__title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.kodara-eng-note__content {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.kodara-eng-note__recommendation {
+  background: #FAF8F5;
+  border-left: 3px solid #FF5E1E;
+  border-radius: 0 6px 6px 0;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: #FF5E1E;
+}

@@ -1,0 +1,107 @@
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: 0 0 var(--space-6) 0;
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.dashboard-header__left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.dashboard-header__title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.dashboard-header__subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.dashboard-header__quote-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card, 14px);
+  padding: 14px 20px 14px 16px;
+  box-shadow: var(--shadow-card);
+  max-width: 480px;
+  overflow: hidden;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.dashboard-header__quote-card:hover {
+  border-color: var(--border-card-hover);
+  box-shadow: var(--shadow-card-glow);
+}
+
+.dashboard-header__quote-grid {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.dashboard-header__quote-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-header__quote-mark {
+  font-size: 38px;
+  font-weight: 700;
+  color: #FF5E1E;
+  line-height: 0.9;
+  font-family: Georgia, serif;
+  user-select: none;
+}
+
+.dashboard-header__quote-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-right: 36px;
+}
+
+.dashboard-header__quote-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.dashboard-header__quote-author {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+
+  .dashboard-header__quote-card {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+

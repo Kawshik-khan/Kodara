@@ -1,0 +1,395 @@
+import { Lesson } from "@/features/lessons/types/lesson.types";
+import controllerSceneSource from "../../../../../courses/harness-playbook/scenes/ch04_budgeted_controller.py?raw";
+
+/**
+ * Chapter 04 of The Harness Engineering Playbook (pp. 95–111, Appendix F pp. 487–493).
+ * Theory is condensed in our own words with page references. The practical
+ * code is written for this course; the book specifies the controller as rules and YAML templates.
+ */
+
+const RUN_OUTPUT = `$ python -m harness.ch04.budgeted_controller
+# governed recovery: state=COMPLETED effect=CONFIRMED calls_left=2 obligations=[]
+# reconciliation unavailable: state=UNRESOLVED_EFFECT effect=UNKNOWN_EFFECT obligations=['refund', 'verify']
+# semantic repeat: state=ABSTAINED log=['cycle detected on probe_ledger:op-7391:NONE:2']`;
+
+export const CH04_CONTINUE_WAIT_STOP_LESSON: Lesson = {
+  id: "hp.04.continue-wait-or-stop",
+  slug: "harness-04-knowing-when-to-continue-wait-or-stop",
+  trackId: "ai-engineering",
+  moduleId: "hp-part-2",
+  moduleTitleEn: "Harness Engineering · Part II · Runtime",
+  moduleTitleBn: "Harness Engineering · পার্ট II · রানটাইম",
+
+  titleEn: "Knowing When to Continue, Wait, or Stop",
+  titleBn: "কখন চালিয়ে যাবে, অপেক্ষা করবে, না থামবে",
+  subtitleEn: "An agent does not deserve another iteration because it is unfinished. It earns one by showing that the next action is permitted, affordable, recoverable, and capable of changing the decision state.",
+  subtitleBn: "কাজ শেষ হয়নি বলেই agent আরেকটি ধাপ পাওয়ার যোগ্য হয় না। পরের পদক্ষেপটি অনুমোদিত, বাজেটের মধ্যে, পুনরুদ্ধারযোগ্য এবং সিদ্ধান্তের অবস্থা বদলাতে সক্ষম হলেই কেবল সে আরেকটি সুযোগ পায়।",
+  descriptionEn: "The budgeted control loop: the CONTINUE contract, six controller responsibilities, non-fungible budget vectors and recovery reserves, progress certificates, trajectory fingerprints, seven terminal states, suspension without polling, and monotonic authority degradation. Book pp. 95–111, with runnable Python, a recorded trace and a controllable retry-amplification chart.",
+  descriptionBn: "Budgeted control loop: CONTINUE চুক্তি, controller-এর ছয়টি দায়িত্ব, অবিনিময়যোগ্য budget vector ও recovery reserve, progress certificate, trajectory fingerprint, সাতটি শেষ অবস্থা, টোকেন না পুড়িয়ে অপেক্ষা এবং ক্ষমতা কমানোর নিয়ম। বইয়ের পৃষ্ঠা 95–111, সাথে চালানো যায় এমন Python, রেকর্ড করা trace এবং নিয়ন্ত্রণযোগ্য chart।",
+
+  difficulty: "intermediate",
+  estimatedMinutes: 35,
+
+  prerequisites: [
+    { id: "hp.02.tool-calls-to-safe-actions", titleEn: "From Tool Calls to Safe Actions", titleBn: "Tool Call থেকে নিরাপদ Action", slug: "harness-02-tool-calls-to-safe-actions" },
+    { id: "hp.03.building-the-right-briefing", titleEn: "Building the Right Briefing", titleBn: "সঠিক briefing তৈরি", slug: "harness-03-building-the-right-briefing" },
+  ],
+  learningObjectivesEn: [
+    "State the five conjunction conditions required before an agent loop is allowed another turn.",
+    "Protect the recovery reserve and explain how delegating local retries causes multiplicative budget laundering.",
+    "Distinguish progress certificates from longer transcripts, and catch semantic loops with trajectory fingerprints.",
+    "Separate operational termination from business completion across the seven terminal states, and degrade authority monotonically.",
+  ],
+  learningObjectivesBn: [
+    "Agent লুপকে পরবর্তী ধাপে যাওয়ার অনুমতি দেওয়ার আগের পাঁচটি আবশ্যিক শর্ত বলতে পারবে।",
+    "Recovery reserve রক্ষা করতে এবং আলাদা স্তরে স্থানীয় retry দিলে কীভাবে বাজেট গুণিতক হারে বেড়ে যায় তা ব্যাখ্যা করতে পারবে।",
+    "লম্বা কথোপকথন থেকে প্রকৃত progress certificate আলাদা করতে এবং trajectory fingerprint দিয়ে চক্রাকার লুপ ধরতে পারবে।",
+    "সাতটি শেষ অবস্থার মাধ্যমে সাধারণ থামা (termination) ও কাজ সম্পন্ন হওয়া (completion) আলাদা করতে এবং ঝুঁকির সময় ক্রমান্বয়ে ক্ষমতা কমাতে পারবে।",
+  ],
+  concepts: [
+    { id: "budgeted-controller", nameEn: "Budgeted state-machine controller", nameBn: "Budgeted state-machine controller", descriptionEn: "Governs continuation, suspension, reconciliation and termination under a declining resource and risk envelope.", descriptionBn: "কমতে থাকা সময়, খরচ ও ঝুঁকির সীমার ভেতরে কাজ চালিয়ে যাওয়া, বিরতি, মীমাংসা ও সমাপ্তি নিয়ন্ত্রণ করে।", trackId: "ai-engineering", difficulty: "intermediate" },
+    { id: "recovery-reserve", nameEn: "Recovery reserve", nameBn: "Recovery reserve", descriptionEn: "Capacity kept off-limits to ordinary steps so the run can always reconcile effects, verify and emit a truthful stop.", descriptionBn: "সাধারণ কাজের বাইরে সংরক্ষিত বাজেট, যাতে সিস্টেম সবসময় অসমাপ্ত কাজের মীমাংসা, যাচাই ও সৎ সমাপ্তি সম্পন্ন করতে পারে।", trackId: "ai-engineering", difficulty: "intermediate" },
+    { id: "progress-certificate", nameEn: "Progress certificate & trajectory fingerprint", nameBn: "Progress certificate ও trajectory fingerprint", descriptionEn: "A reducer-verified state delta and control-state hash that stop no-progress loops and oscillation.", descriptionBn: "State reducer দ্বারা যাচাইকৃত অগ্রগতির প্রমাণ এবং অবস্থার হ্যাশ, যা অর্থহীন পুনরাবৃত্তি ও চক্রাকার লুপ থামিয়ে দেয়।", trackId: "ai-engineering", difficulty: "intermediate" },
+  ],
+
+  sections: [
+    {
+      id: "hp04-theory",
+      order: 1,
+      titleEn: "1. Theory",
+      titleBn: "১. তত্ত্ব",
+      blocks: [
+        {
+          id: "hp04-lead",
+          type: "explanation",
+          titleEn: "A while-not-done loop is an abdication with indentation",
+          titleBn: "while-not-done লুপ মানে দায়িত্ব এড়িয়ে যাওয়া",
+          contentEn: "The classic diagram—observe, think, act, repeat—looks harmless until an action may already have happened. After a payment timeout, \"try again\" can mean \"pay twice.\" After three weak attempts, \"keep thinking\" means burning money without learning anything. From the model's perspective, trying another wording or tool after a timeout is persistence; from the payment ledger's perspective, it may be two refunds. The production object is not a conversational loop. It is a budgeted state machine that grants another turn only when five conditions hold together: the task is nonterminal, the next transition is authorized, its worst-case cost fits outside the recovery reserve, it can produce declared progress or bounded information gain, and no unresolved effect requires reconciliation first.",
+          contentBn: "পরিচিত ডায়াগ্রাম—observe, think, act, repeat—ততক্ষণই নিরীহ দেখায় যতক্ষণ না কোনো বাহ্যিক কাজ ইতিমধ্যে ঘটে গিয়ে থাকতে পারে। পেমেন্ট timeout-এর পর \"আবার চেষ্টা করো\" মানে হতে পারে \"দুবার টাকা দাও\"। কয়েকটি দুর্বল চেষ্টার পর \"আরও ভাবো\" মানে নতুন কিছু না জেনেই টাকা পোড়ানো। মডেলের চোখে timeout-এর পর ভাষা বা tool বদলে আবার চেষ্টা করা অধ্যবসায়; কিন্তু পেমেন্ট ledger-এর চোখে তা দুটি refund। তাই আসল সিস্টেমে চ্যাট লুপের বদলে থাকে একটি budgeted state machine, যা কেবল তখনই পরের ধাপের অনুমতি দেয় যখন পাঁচটি শর্ত একসাথে পূরণ হয়: কাজটি এখনো শেষ অবস্থায় পৌঁছায়নি, পরের পদক্ষেপ অনুমোদিত, এর সর্বোচ্চ খরচ recovery reserve-এর বাইরে এঁটে যায়, এটি স্পষ্ট অগ্রগতি বা নির্দিষ্ট তথ্য দিতে পারে, এবং কোনো অমীমাংসিত effect মীমাংসার অপেক্ষায় নেই।",
+          keyIdeaEn: "\"The model proposes movement. The harness controls continuation.\" (p. 110)",
+          keyIdeaBn: "মডেল পরবর্তী পদক্ষেপের প্রস্তাব দেয়। কাজ চালিয়ে যাওয়া নিয়ন্ত্রণ করে harness। (p. 110)",
+        },
+        {
+          id: "hp04-responsibilities",
+          type: "under-the-hood",
+          titleEn: "Six controller responsibilities and the run lifecycle (pp. 96–97)",
+          titleBn: "Controller-এর ছয়টি দায়িত্ব এবং জীবনচক্র (pp. 96–97)",
+          explanationEn: "The loop is not \"the model calling tools.\" Each step q_(t+1) = Reduce(q_t, o_t, p_t, d_t, e_t) separates six jobs across active and terminal states.",
+          explanationBn: "লুপ মানে \"মডেলের নিজের ইচ্ছেমতো tool ডাকা\" নয়। প্রতিটি ধাপ q_(t+1) = Reduce(q_t, o_t, p_t, d_t, e_t) ছয়টি দায়িত্ব আলাদা রাখে।",
+          pipelineSteps: [
+            { titleEn: "1. Observe", titleBn: "১. Observe (পর্যবেক্ষণ)", descEn: "What changed in the environment? Owned by typed adapters and external systems.", descBn: "পরিবেশে কী বদলেছে? এর মালিক typed adapter এবং বাহ্যিক সিস্টেম।" },
+            { titleEn: "2. Reconcile", titleBn: "২. Reconcile (মীমাংসা)", descEn: "What is the current business state, including uncertain effects? Owned by the state reducer and effect protocol.", descBn: "অনিশ্চিত প্রভাবসহ বর্তমান প্রকৃত অবস্থা কী? এর মালিক state reducer এবং effect protocol।" },
+            { titleEn: "3. Propose", titleBn: "৩. Propose (প্রস্তাব)", descEn: "What could move the task forward? Proposed by the model, workflow logic, or both.", descBn: "কোন পদক্ষেপ কাজটিকে এগিয়ে নিতে পারে? প্রস্তাব করে মডেল বা ওয়ার্কফ্লো লজিক।" },
+            { titleEn: "4. Admit", titleBn: "৪. Admit (অনুমোদন)", descEn: "Is the proposal permitted, affordable outside the reserve, and coherent? Owned by the deterministic policy and budget controller.", descBn: "প্রস্তাবটি কি অনুমোদিত, সংরক্ষিত বাজেটের বাইরে সাশ্রয়ী এবং সামঞ্জস্যপূর্ণ? এর মালিক নির্ধারিত policy ও budget controller।" },
+            { titleEn: "5. Execute", titleBn: "৫. Execute (বাস্তবায়ন)", descEn: "What happened at the action boundary? Owned by the executor and capability adapter.", descBn: "অ্যাকশন সীমানায় কী ঘটল? এর মালিক executor এবং capability adapter।" },
+            { titleEn: "6. Qualify", titleBn: "৬. Qualify (যোগ্যতা নির্ধারণ)", descEn: "May the run continue, wait (WAITING_EXTERNAL / WAITING_HUMAN), recover (RECOVERING), verify (VERIFYING), or terminate? Owned by stop policy.", descBn: "রানটি কি চলবে, অপেক্ষা করবে (WAITING_EXTERNAL / WAITING_HUMAN), পুনরুদ্ধার করবে (RECOVERING), যাচাই করবে (VERIFYING), নাকি শেষ হবে? এর মালিক stop policy।" },
+          ],
+          technicalNoteEn: "WAITING_EXTERNAL is not a slow version of RUNNING: it has no right to burn model turns while nothing can change. RECOVERING restricts the next move to reconciliation or compensation.",
+          technicalNoteBn: "WAITING_EXTERNAL মানে ধীরগতির RUNNING নয়: নতুন তথ্য না আসা পর্যন্ত এর কোনো মডেল কল খরচ করার অধিকার নেই। আর RECOVERING পরবর্তী পদক্ষেপকে কেবল মীমাংসা বা ক্ষতিপূরণে সীমাবদ্ধ রাখে।",
+        },
+        {
+          id: "hp04-budget",
+          type: "engineering-note",
+          titleEn: "Budget is delegated authority: vectors, reserves, and laundering (pp. 97–99)",
+          titleBn: "Budget হলো অর্পিত ক্ষমতা: ভেক্টর, রিজার্ভ এবং বাজেট লন্ডারিং (pp. 97–99)",
+          contentEn: "B_t = <wall_time, model_calls, model_tokens, tool_calls, external_cost, retry_units, risk_units, human_attention>\nAdmission rule: B_t − committed_t − c(a) ≥ recovery_reserve (component-wise)\n\n• Non-fungible: saving tokens never buys permission to issue another refund.\n• Recovery reserve: spending the last call on an external effect with nothing left to reconcile it makes the run insolvent.\n• No budget laundering: if a parent with 4 retry units spawns 2 workers that each invent 4 local retries, the task silently grows to 12 attempts (and 3 layers × 4 attempts multiplies to 64).",
+          contentBn: "B_t = <wall_time, model_calls, model_tokens, tool_calls, external_cost, retry_units, risk_units, human_attention>\nঅনুমোদনের শর্ত: B_t − committed_t − c(a) ≥ recovery_reserve (প্রতিটি এককের জন্য আলাদাভাবে)\n\n• অবিনিময়যোগ্য (Non-fungible): টোকেন বাঁচিয়ে অতিরিক্ত আরেকবার refund দেওয়ার অনুমতি কেনা যায় না।\n• Recovery reserve: মীমাংসার বাজেট না রেখে শেষ কল দিয়ে বাহ্যিক কাজ শুরু করা মানে দেউলিয়া হওয়া।\n• Budget laundering নিষিদ্ধ: ৪টি retry থাকা parent যদি ২জন কর্মীকে আলাদা করে ৪টি করে স্থানীয় retry দেয়, তবে মোট চেষ্টা বেড়ে ১২ হয়ে যায় (আর ৩টি স্তরে ৪ বার করে চেষ্টা গুণ হয়ে ৬৪ বারে দাঁড়ায়)।",
+          recommendationEn: "Sub-budgets must be deducted from the parent's durable ledger, child deadlines inherit remaining time minus the recovery margin, and resuming a worker never resets spent counters.",
+          recommendationBn: "সাব-বাজেট সবসময় মূল ledger থেকে কেটে দিতে হবে, child-এর সময়সীমা হবে অবশিষ্ট সময় বিয়োগ recovery margin, আর নতুন worker চালু হলেও খরচের হিসাব কখনো শূন্য থেকে শুরু হবে না।",
+        },
+        {
+          id: "hp04-progress",
+          type: "under-the-hood",
+          titleEn: "Progress certificates and trajectory fingerprints (pp. 99–101)",
+          titleBn: "Progress certificate এবং trajectory fingerprint (pp. 99–101)",
+          explanationEn: "\"Thought more deeply\" and a longer transcript are not progress. Continuation requires a reducer-verified delta across five channels, guarded by a control-state fingerprint.",
+          explanationBn: "\"আরও গভীরভাবে ভেবেছি\" বা কথোপকথন লম্বা হওয়া কোনো অগ্রগতি নয়। কাজ চালিয়ে যেতে হলে নিচের পাঁচটি পথের কোনো একটিতে যাচাইকৃত পরিবর্তন দেখাতে হয় এবং fingerprint দিয়ে চক্রাকার লুপ আটকাতে হয়।",
+          pipelineSteps: [
+            { titleEn: "Convergence", titleBn: "Convergence (লক্ষ্যের দিকে অগ্রসর হওয়া)", descEn: "An open obligation, unresolved conflict or unverified claim in P(q) decreased.", descBn: "বাকি থাকা দায়িত্ব, অমীমাংসিত বিরোধ বা অযাচাইকৃত দাবির সংখ্যা কমেছে।" },
+            { titleEn: "Information gain", titleBn: "Information gain (নতুন তথ্য অর্জন)", descEn: "A bounded probe can resolve a named uncertainty that changes feasible actions.", descBn: "একটি নির্দিষ্ট অনুসন্ধান চিহ্নিত অনিশ্চয়তা দূর করে পরবর্তী সম্ভাব্য কাজ নির্ধারণ করেছে।" },
+            { titleEn: "Repair", titleBn: "Repair (মেরামত)", descEn: "The next step addresses a specific failed postcondition under a verified changed condition.", descBn: "পরিবর্তিত পরিস্থিতিতে একটি নির্দিষ্ট ব্যর্থ শর্ত মেরামতের পদক্ষেপ নেওয়া হয়েছে।" },
+            { titleEn: "Reconciliation", titleBn: "Reconciliation (মীমাংসা)", descEn: "An authoritative read advances an UNKNOWN_EFFECT toward CONFIRMED_APPLIED or CONFIRMED_ABSENT.", descBn: "প্রামাণ্য যাচাইয়ের মাধ্যমে UNKNOWN_EFFECT-কে নিশ্চিত অবস্থায় এগিয়ে নেওয়া হয়েছে।" },
+            { titleEn: "Trajectory fingerprint check", titleBn: "Trajectory fingerprint যাচাই", descEn: "hash(phase, open_obligations, effect_states, versions, failed_postconditions, operation_class, target) catches repeats and A → B → A cycles even when wording changes.", descBn: "ভাষার পরিবর্তন হলেও যদি কাজ, লক্ষ্য, effect এবং বাকি দায়িত্বের হ্যাশ আগের কোনো ধাপের সাথে মিলে যায়, তবে সাথে সাথে লুপ থামানো হয়।" },
+          ],
+          technicalNoteEn: "Legitimate repetition (pagination, polling after a declared wake time) changes cursor or clock state; suspicious repetition revisits the exact same control state.",
+          technicalNoteBn: "বৈধ পুনরাবৃত্তিতে (যেমন পরের পৃষ্ঠা দেখা বা নির্ধারিত বিরতির পর খোঁজ নেওয়া) কার্সার বা সময়ের অবস্থা বদলায়; কিন্তু সন্দেহজনক লুপে পুরো নিয়ন্ত্রণ অবস্থা অপরিবর্তিত থাকে।",
+        },
+        {
+          id: "hp04-terminals",
+          type: "comparison",
+          titleEn: "Completion and termination are not synonyms (p. 101)",
+          titleBn: "কাজ থামা (termination) আর কাজ শেষ হওয়া (completion) এক কথা নয় (p. 101)",
+          headers: ["Terminal state", "Meaning & required evidence", "Accountable owner response"],
+          rows: [
+            { featureEn: "COMPLETED", featureBn: "COMPLETED", values: ["All required obligations qualified with fresh completion certificate", "Case owner consumes artifact or result"] },
+            { featureEn: "ABSTAINED", featureBn: "ABSTAINED", values: ["Lacks justified answer or safe action; records blocking condition", "Case owner obtains info or redesigns scope"] },
+            { featureEn: "DENIED", featureBn: "DENIED", values: ["Policy forbids requested transition; records policy version", "Policy owner / requester accepts refusal"] },
+            { featureEn: "CANCELLED", featureBn: "CANCELLED", values: ["Principal withdrew continuation; revokes leases & reconciles in-flight work", "Case owner resolves any residual effects"] },
+            { featureEn: "BUDGET_EXHAUSTED", featureBn: "BUDGET_EXHAUSTED", values: ["Hard envelope ended before qualification; preserves ledger & open items", "Service owner adds budget, narrows scope or closes"] },
+            { featureEn: "FAILED", featureBn: "FAILED", values: ["Terminal technical or domain failure with recovery assessment", "Service owner handles incident or manual finish"] },
+            { featureEn: "UNRESOLVED_EFFECT", featureBn: "UNRESOLVED_EFFECT", values: ["Consequential action may have occurred; attaches intent & lookup history", "Payments/incident specialist investigates; never blind retry"] },
+          ],
+          footnoteEn: "Never fold these seven states into one \"success rate\" metric, and never let a worker write COMPLETED without a verified certificate.",
+          footnoteBn: "এই সাতটি অবস্থাকে কখনো একটি গড় \"সাফল্যের হার\"-এ মিশিয়ে ফেলবে না, এবং যাচাইকৃত সার্টিফিকেট ছাড়া worker-কে কখনো COMPLETED লিখতে দেবে না।",
+        },
+        {
+          id: "hp04-degradation",
+          type: "engineering-note",
+          titleEn: "Checkpoints around effects and the monotonic degradation law (pp. 104–106)",
+          titleBn: "Effect-এর চারপাশে checkpoint এবং ক্ষমতা কমানোর একমুখী নিয়ম (pp. 104–106)",
+          contentEn: "Eight effect-boundary checkpoints:\n1. frozen proposal → 2. authorization → 3. durable intent + key → 4. dispatch → 5. transport observation → 6. authoritative reconciliation → 7. business receipt → 8. obligation qualification\n\nMonotonic authority degradation order (Simplex / runtime-assurance pattern):\ncommit external effect → propose for human approval → generate private draft → return verified partial findings → abstain with recovery packet",
+          contentBn: "Effect সীমানার আটটি checkpoint:\n১. স্থির প্রস্তাব → ২. অনুমোদন → ৩. স্থায়ী intent ও key → ৪. dispatch → ৫. পরিবহন পর্যবেক্ষণ → ৬. প্রামাণ্য মীমাংসা → ৭. ব্যবসায়িক রসিদ → ৮. দায়িত্ব সমাপ্তি\n\nক্ষমতা কমানোর একমুখী ক্রম (Simplex / runtime-assurance ধাঁচ):\nবাহ্যিক কাজ সম্পন্ন করা → মানুষের অনুমোদনের জন্য প্রস্তাব রাখা → অভ্যন্তরীণ খসড়া তৈরি → যাচাইকৃত আংশিক তথ্য ফেরত → recovery প্যাকেজসহ বিরত থাকা (abstain)",
+          recommendationEn: "Degradation law (p. 106): As confidence, budget, or dependency health falls, the system's authority must stay constant or decrease—never increase to compensate. Switching to a cheaper model with the same write permissions is not graceful degradation.",
+          recommendationBn: "অবনমন সূত্র (p. 106): আত্মবিশ্বাস, বাজেট বা সিস্টেমের সুস্থতা কমলে এজেন্টের ক্ষমতা স্থির থাকতে বা কমতে পারে—ক্ষতি পুষিয়ে নিতে কখনোই বাড়তে পারে না। একই লেখার অনুমতি রেখে সস্তা মডেলে চলে যাওয়া কোনো নিরাপদ অবনমন নয়।",
+        },
+        {
+          id: "hp04-mistake",
+          type: "mistake",
+          wrongMentalModelEn: "To keep an agent safe and cheap, cap the loop at max_turns = 20 and switch to a smaller model when tokens run low.",
+          wrongMentalModelBn: "Agent-কে নিরাপদ ও সাশ্রয়ী রাখতে max_turns = 20 বেঁধে দাও এবং টোকেন কমে এলে ছোট মডেলে সুইচ করো।",
+          correctMentalModelEn: "Turn caps alone cannot stop a duplicate payment on turn 2 or distinguish hard work from a semantic cycle, and giving a weaker model the same commit authority increases risk when budget is tightest.",
+          correctMentalModelBn: "শুধু turn সংখ্যা বেঁধে দিলে ২ নম্বর ধাপেই দুবার টাকা চলে যাওয়া আটকানো যায় না বা চক্রাকার লুপ চেনা যায় না; আর বাজেট শেষে দুর্বল মডেলের হাতে একই বাহ্যিক কাজের ক্ষমতা রাখলে ঝুঁকি উল্টো বেড়ে যায়।",
+          explanationEn: "A governed controller enforces recovery reserves before dispatch, suspends during external waits, checks progress fingerprints, and steps authority down to draft or abstain when resources fall (pp. 98–106).",
+          explanationBn: "নিয়ন্ত্রিত controller কাজের আগেই recovery reserve রাখে, অপেক্ষার সময় বিরতি নেয়, অগ্রগতির fingerprint মাপে এবং বাজেট কমলে ক্ষমতা কমিয়ে খসড়া বা বিরতিতে চলে যায় (pp. 98–106)।",
+        },
+        {
+          id: "hp04-summary",
+          type: "summary",
+          titleEn: "Carry forward",
+          titleBn: "মনে রাখো",
+          takeawaysEn: [
+            "Every turn must be earned: authorized, affordable outside the recovery reserve, free of unreconciled effects, and backed by a progress argument.",
+            "Budgets are non-fungible vectors owned by the obligation; child workers cannot mint retries or reset deadlines.",
+            "Waiting suspends inference in WAITING_EXTERNAL or WAITING_HUMAN instead of polling in a model loop.",
+            "Termination is not completion: distinguish COMPLETED, ABSTAINED, DENIED, CANCELLED, BUDGET_EXHAUSTED, FAILED and UNRESOLVED_EFFECT.",
+          ],
+          takeawaysBn: [
+            "প্রতিটি ধাপ অর্জন করে নিতে হয়: অনুমোদিত, recovery reserve-এর বাইরে সাশ্রয়ী, অমীমাংসিত প্রভাবমুক্ত এবং স্পষ্ট অগ্রগতির যুক্তিসম্পন্ন।",
+            "বাজেট হলো কাজের সাথে বাঁধা অবিনিময়যোগ্য ভেক্টর; অধীনস্থ কর্মীরা নতুন retry তৈরি করতে বা সময়সীমা নবায়ন করতে পারে না।",
+            "অপেক্ষার সময় চ্যাট লুপে বারবার না খুঁজে WAITING_EXTERNAL বা WAITING_HUMAN অবস্থায় মডেল কল বন্ধ রাখতে হয়।",
+            "কাজ থামা মানেই কাজ শেষ হওয়া নয়: COMPLETED, ABSTAINED, DENIED, CANCELLED, BUDGET_EXHAUSTED, FAILED এবং UNRESOLVED_EFFECT আলাদা রাখো।",
+          ],
+          checklistEn: [
+            "Admission checks B_t − committed_t − c(a) ≥ recovery_reserve before every non-recovery step.",
+            "Trajectory fingerprints detect no-progress repeats and short cycles across tools and workers.",
+            "Dispatched effects that cannot be reconciled before the deadline terminate as UNRESOLVED_EFFECT.",
+            "Degradation monotonically reduces authority from external commit down to draft or abstention.",
+          ],
+          checklistBn: [
+            "সাধারণ যেকোনো পদক্ষেপের আগে B_t − committed_t − c(a) ≥ recovery_reserve শর্তটি যাচাই করা হয়।",
+            "Trajectory fingerprint দিয়ে সব tool ও worker জুড়ে অর্থহীন পুনরাবৃত্তি ও চক্র ধরা হয়।",
+            "সময়সীমার মধ্যে মীমাংসা না হওয়া বাহ্যিক কাজ UNRESOLVED_EFFECT হিসেবে শেষ হয়।",
+            "ঝুঁকি বা বাজেট সংকটে বাহ্যিক commit থেকে ক্রমান্বয়ে ক্ষমতা কমিয়ে খসড়া বা বিরতিতে নামিয়ে আনা হয়।",
+          ],
+        },
+      ],
+    },
+    {
+      id: "hp04-visual",
+      order: 2,
+      titleEn: "2. Visual",
+      titleBn: "২. ভিজ্যুয়াল",
+      blocks: [
+        {
+          id: "hp04-flow",
+          type: "visualization",
+          visualizationId: "ai-engineering.harness.budgeted-controller",
+          titleEn: "Continue, wait, reconcile, or stop honestly",
+          titleBn: "চালিয়ে যাওয়া, অপেক্ষা, মীমাংসা কিংবা সৎভাবে থামা",
+        },
+        {
+          id: "hp04-chart",
+          type: "chart",
+          chartId: "ai-engineering.harness.retry-amplification",
+        },
+        {
+          id: "hp04-manim-controller",
+          type: "code",
+          title: "scenes/ch04_budgeted_controller.py · ManimGL · manimgl ch04_budgeted_controller.py BudgetedControllerScene -w",
+          language: "python",
+          code: controllerSceneSource.replace(/\n$/, ""),
+        },
+      ],
+    },
+    {
+      id: "hp04-practical",
+      order: 3,
+      titleEn: "3. Practical",
+      titleBn: "৩. প্র্যাকটিক্যাল",
+      blocks: [
+        {
+          id: "hp04-practical-intro",
+          type: "explanation",
+          titleEn: "Code written for this course",
+          titleBn: "এই কোর্সের জন্য লেখা code",
+          contentEn: "The file below implements the Chapter 04 continuation gate: unknown-effect blocking, zero-call suspension in WAITING_EXTERNAL, recovery-reserve protection, trajectory-fingerprint cycle stopping, and honest UNRESOLVED_EFFECT termination when the ledger is unavailable. Run it from courses/harness-playbook with python -m harness.ch04.budgeted_controller, and run the tests with python -m unittest.",
+          contentBn: "নিচের ফাইলটি অধ্যায় ০৪-এর continuation gate বাস্তবায়ন করে: অজানা effect থাকা অবস্থায় নতুন কাজ আটকানো, কল খরচ না করে WAITING_EXTERNAL-এ বিরতি, recovery reserve রক্ষা, fingerprint দিয়ে চক্রাকার লুপ থামানো এবং ledger বন্ধ থাকলে সৎভাবে UNRESOLVED_EFFECT ঘোষণা। courses/harness-playbook থেকে python -m harness.ch04.budgeted_controller দিয়ে চালাও এবং python -m unittest দিয়ে test করো।",
+        },
+        {
+          id: "hp04-trace",
+          type: "code-trace",
+          traceId: "ai-engineering.harness.ch04.budgeted-controller",
+        },
+        {
+          id: "hp04-output",
+          type: "code",
+          title: "Real output",
+          language: "bash",
+          code: RUN_OUTPUT,
+        },
+        {
+          id: "hp04-exercise",
+          type: "engineering-note",
+          titleEn: "Exercise: stop budget laundering on delegation",
+          titleBn: "অনুশীলন: দায়িত্ব অর্পণের সময় budget laundering বন্ধ করো",
+          contentEn: "On page 98, a parent that delegates work without deducting from its own ledger launders budget. Right now delegate(ctrl, child_calls) returns a fresh Controller(calls_left=child_calls, reserve=0) without touching ctrl.calls_left. Update delegate() so it raises ValueError(\"cannot mint budget\") if ctrl.calls_left - child_calls < ctrl.reserve, and otherwise subtracts child_calls from ctrl.calls_left before returning the child controller.",
+          contentBn: "পৃষ্ঠা 98 অনুযায়ী, মূল ledger থেকে না কেটে অধীনস্থ কর্মীকে বাজেট দিলে অবৈধভাবে বাজেট বেড়ে যায় (budget laundering)। এখন delegate(ctrl, child_calls) মূল ctrl.calls_left না কমিয়েই নতুন Controller ফেরত দেয়। delegate()-কে ঠিক করো: যদি ctrl.calls_left - child_calls < ctrl.reserve হয় তবে ValueError(\"cannot mint budget\") তোলো, নতুবা ctrl.calls_left থেকে child_calls বিয়োগ করে child controller ফেরত দাও।",
+          recommendationEn: "tests/test_ch04.py has ExerciseTest marked @unittest.expectedFailure. Remove the decorator once your change passes.",
+          recommendationBn: "tests/test_ch04.py-তে ExerciseTest আগে থেকেই @unittest.expectedFailure দিয়ে রাখা আছে। তোমার কোড কাজ করলে decorator-টি সরিয়ে দাও।",
+        },
+      ],
+    },
+    {
+      id: "hp04-qa",
+      order: 4,
+      titleEn: "4. Q&A",
+      titleBn: "৪. প্রশ্নোত্তর",
+      blocks: [
+        {
+          id: "hp04-q1",
+          type: "practice",
+          practiceType: "multiple-choice",
+          questionEn: "A run has 1 model/tool call remaining and a recovery reserve of 1 call. The model proposes dispatching a refund. What must the controller do?",
+          questionBn: "একটি রানে মাত্র ১টি কল বাকি আছে এবং recovery reserve হলো ১টি কল। মডেল এখন একটি refund পাঠানোর প্রস্তাব দিল। Controller-এর কী করা উচিত?",
+          options: [
+            { id: "a", textEn: "Allow the dispatch because calls_left is still greater than zero", textBn: "কল সংখ্যা শূন্যের বেশি আছে বলে dispatch করার অনুমতি দেওয়া", isCorrect: false, explanationEn: "That leaves zero capacity to reconcile or verify the payment if anything goes wrong.", explanationBn: "এতে পেমেন্টের পর যাচাই বা মীমাংসা করার মতো কোনো বাজেটই অবশিষ্ট থাকবে না।" },
+            { id: "b", textEn: "Refuse dispatch and transition to BUDGET_EXHAUSTED before any money moves", textBn: "টাকা পাঠানোর আগেই প্রস্তাবটি প্রত্যাখ্যান করা এবং BUDGET_EXHAUSTED অবস্থায় যাওয়া", isCorrect: true, explanationEn: "Admission requires B_t − committed_t − c(a) ≥ recovery_reserve; spending the last call on an effect makes the run insolvent (pp. 98, 106).", explanationBn: "অনুমোদনের শর্ত হলো B_t − committed_t − c(a) ≥ recovery_reserve; শেষ কলটি বাহ্যিক কাজে খরচ করলে রানটি দেউলিয়া হয়ে পড়ে (pp. 98, 106)।" },
+            { id: "c", textEn: "Borrow calls from a newly spawned subagent", textBn: "নতুন একটি subagent তৈরি করে তার কাছ থেকে কল ধার নেওয়া", isCorrect: false, explanationEn: "Spawning children cannot mint budget (p. 98).", explanationBn: "Subagent তৈরি করে নতুন বাজেট বানানো যায় না (p. 98)।" },
+          ],
+        },
+        {
+          id: "hp04-q2",
+          type: "practice",
+          practiceType: "multiple-choice",
+          questionEn: "An agent loop allows 4 attempts per turn, delegates to a subagent that allows 4 attempts, and calls a tool wrapper that retries 4 times on timeout. How many times can one logical obligation hit the provider in the worst case?",
+          questionBn: "একটি এজেন্ট লুপ প্রতি ধাপে ৪ বার চেষ্টা করে, তার অধীনস্থ subagent ৪ বার চেষ্টা করে এবং নিচের tool wrapper-ও timeout হলে ৪ বার retry করে। সবচেয়ে খারাপ পরিস্থিতিতে একটি কাজের জন্য provider-এ কতবার কল যেতে পারে?",
+          options: [
+            { id: "a", textEn: "4 times", textBn: "৪ বার", isCorrect: false, explanationEn: "4 is the limit only when one obligation-scoped ledger owns retries across all layers.", explanationBn: "সব স্তর মিলিয়ে একটিই কেন্দ্রীয় ledger থাকলে কেবল ৪ বারের সীমা বজায় থাকে।" },
+            { id: "b", textEn: "12 times (4 + 4 + 4)", textBn: "১২ বার (৪ + ৪ + ৪)", isCorrect: false, explanationEn: "Nested retry loops multiply rather than add.", explanationBn: "একের ভেতর আরেক স্তরের retry যোগ না হয়ে গুণ হয়।" },
+            { id: "c", textEn: "64 times (4 × 4 × 4)", textBn: "৬৪ বার (৪ × ৪ × ৪)", isCorrect: true, explanationEn: "Four attempts at each of three nested layers multiply into 64 attempts (p. 98).", explanationBn: "তিনটি স্তরের প্রতিটিতে ৪ বার করে চেষ্টা গুণ হয়ে ৪ × ৪ × ৪ = ৬৪ বার হয়ে যায় (p. 98)।" },
+          ],
+        },
+        {
+          id: "hp04-q3",
+          type: "practice",
+          practiceType: "code-reasoning",
+          questionEn: "In the recorded trace's third scenario, why does the second call to step(ctrl, \"probe_ledger\") terminate as ABSTAINED?",
+          questionBn: "রেকর্ড করা trace-এর তৃতীয় scenario-তে দ্বিতীয়বার step(ctrl, \"probe_ledger\") কল করলে কেন রানটি ABSTAINED হিসেবে থেমে যায়?",
+          codeSnippet: `fp = f"{action}:{target}:{ctrl.effect}:{len(ctrl.obligations)}"\nif fp in ctrl.history:\n    ctrl.state = "ABSTAINED"\n    ctrl.log.append(f"cycle detected on {fp}")\n    return ctrl.state`,
+          options: [
+            { id: "a", textEn: "Because neither the effect state nor the open obligations changed after the first probe, producing an identical control-state fingerprint", textBn: "কারণ প্রথমবার অনুসন্ধানের পর effect বা বাকি দায়িত্বের কোনো পরিবর্তন হয়নি, ফলে হুবহু একই fingerprint তৈরি হয়েছে", isCorrect: true, explanationEn: "A repeated control-state fingerprint with no accepted progress delta proves the loop is cycling (p. 100).", explanationBn: "কোনো অগ্রগতি ছাড়া একই control-state fingerprint ফিরে আসা প্রমাণ করে যে লুপটি একই জায়গায় ঘুরপাক খাচ্ছে (p. 100)।" },
+            { id: "b", textEn: "Because probe_ledger is an unauthorized tool", textBn: "কারণ probe_ledger একটি অননুমোদিত tool", isCorrect: false, explanationEn: "The first call succeeded; it was the unchanged repeat that triggered the stop.", explanationBn: "প্রথম কলটি অনুমোদিত হয়েছিল; কোনো অগ্রগতি ছাড়া দ্বিতীয়বার একই কল করায় এটি থামানো হয়েছে।" },
+            { id: "c", textEn: "Because the call budget reached zero", textBn: "কারণ কলের বাজেট শূন্যে নেমে গেছে", isCorrect: false, explanationEn: "4 calls are still left; the fingerprint detector stops the loop before the budget is wasted.", explanationBn: "তখনো ৪টি কল বাকি ছিল; বাজেট অপচয় হওয়ার আগেই fingerprint detector লুপটি থামিয়ে দিয়েছে।" },
+          ],
+          hintEn: "Step through scenario 3 (Semantic repeat) to lines 32–36.",
+          hintBn: "Scenario ৩-এ (একই কাজের পুনরাবৃত্তি) লাইন 32–36 পর্যন্ত ধাপে ধাপে যাও।",
+        },
+        {
+          id: "hp04-q4",
+          type: "practice",
+          practiceType: "multiple-choice",
+          questionEn: "After a payment timeout, the provider's reconciliation endpoint stays unavailable until the task's hard deadline. Which terminal state should the controller emit?",
+          questionBn: "পেমেন্ট timeout হওয়ার পর চূড়ান্ত সময়সীমা (deadline) পর্যন্ত provider-এর মীমাংসার ব্যবস্থা অচল থাকল। Controller-এর কোন শেষ অবস্থা (terminal state) ঘোষণা করা উচিত?",
+          options: [
+            { id: "a", textEn: "COMPLETED, after sending a polite message that the refund was submitted", textBn: "Refund পাঠানো হয়েছে জানিয়ে COMPLETED ঘোষণা করা", isCorrect: false, explanationEn: "Submission is not settlement; claiming completion without evidence violates the stop protocol.", explanationBn: "পাঠানো মানেই টাকা নিষ্পন্ন হওয়া নয়; প্রমাণ ছাড়া COMPLETED বলা নিয়মবিরুদ্ধ।" },
+            { id: "b", textEn: "UNRESOLVED_EFFECT, attaching the frozen operation packet and routing it to the payments incident owner", textBn: "UNRESOLVED_EFFECT ঘোষণা করা এবং পুরো তথ্যসহ payments incident owner-এর কাছে পাঠানো", isCorrect: true, explanationEn: "When a dispatched effect cannot be confirmed or ruled out before the deadline, UNRESOLVED_EFFECT is the only truthful state (pp. 101, 107).", explanationBn: "সময়সীমার মধ্যে বাহ্যিক প্রভাব নিশ্চিত বা নাকচ করা না গেলে UNRESOLVED_EFFECT-ই একমাত্র সত্য অবস্থা (pp. 101, 107)।" },
+            { id: "c", textEn: "FAILED, so the generic queue retries the task from scratch", textBn: "FAILED ঘোষণা করা যাতে সাধারণ কিউ থেকে পুরো কাজটি আবার শুরু হয়", isCorrect: false, explanationEn: "A blind rerun from FAILED would dispatch a second refund.", explanationBn: "FAILED ধরে শুরু থেকে আবার চালালে দ্বিতীয়বার টাকা চলে যাবে।" },
+          ],
+        },
+        {
+          id: "hp04-q5",
+          type: "practice",
+          practiceType: "multiple-choice",
+          questionEn: "According to the chapter's degradation law, what is a valid way to degrade when budget or confidence drops?",
+          questionBn: "এই অধ্যায়ের অবনমন সূত্র (degradation law) অনুযায়ী, বাজেট বা আত্মবিশ্বাস কমে গেলে নিচের কোনটি সঠিক পদক্ষেপ?",
+          options: [
+            { id: "a", textEn: "Switch to a smaller, cheaper model while keeping external commit permissions enabled", textBn: "বাহ্যিক commit করার অনুমতি বহাল রেখে ছোট ও সস্তা মডেলে চলে যাওয়া", isCorrect: false, explanationEn: "Lower model quality with the same consequential authority increases risk (pp. 105–106).", explanationBn: "একই ঝুঁকিপূর্ণ ক্ষমতা রেখে দুর্বল মডেলে গেলে ভুলের ঝুঁকি আরও বাড়ে (pp. 105–106)।" },
+            { id: "b", textEn: "Skip independent verification so the remaining tokens can finish the action", textBn: "বাকি টোকেন দিয়ে কাজ শেষ করার জন্য স্বাধীন যাচাই (verification) বাদ দেওয়া", isCorrect: false, explanationEn: "Assurance checks and reconciliation may never be weakened to save budget.", explanationBn: "বাজেট বাঁচাতে যাচাই বা মীমাংসার শর্ত কখনো শিথিল করা যায় না।" },
+            { id: "c", textEn: "Step authority down monotonically: from external commit to proposing for approval, generating a private draft, or abstaining with a recovery packet", textBn: "ধাপে ধাপে ক্ষমতা কমানো: সরাসরি commit না করে অনুমোদনের প্রস্তাব রাখা, অভ্যন্তরীণ খসড়া তৈরি করা বা recovery প্যাকেজসহ বিরত থাকা", isCorrect: true, explanationEn: "As budget or health falls, authority must stay constant or decrease—never increase (p. 106).", explanationBn: "বাজেট বা সিস্টেমের সুস্থতা কমলে ক্ষমতা হয় অপরিবর্তিত থাকবে নয়তো কমবে—কখনো বাড়বে না (p. 106)।" },
+          ],
+        },
+        {
+          id: "hp04-faq",
+          type: "faq",
+          titleEn: "Questions learners ask about this chapter",
+          titleBn: "এই অধ্যায় নিয়ে সাধারণ প্রশ্ন",
+          items: [
+            {
+              questionEn: "Why isn't max_turns = 15 enough to control an agent loop?",
+              questionBn: "এজেন্ট লুপ নিয়ন্ত্রণের জন্য শুধু max_turns = 15 যথেষ্ট নয় কেন?",
+              answerEn: "A turn counter only bounds how long a loop runs; it does not check whether turn 2 repeated an unkeyed payment, whether turns 3–14 polled an unchanged status in a circle, or whether turn 15 spent the last call on an external effect with zero budget left to verify it.",
+              answerBn: "Turn সংখ্যা কেবল লুপ কতক্ষণ চলবে তা সীমিত করে; কিন্তু ২ নম্বর ধাপেই দুবার পেমেন্ট হয়ে গেল কি না, ৩ থেকে ১৪ নম্বর ধাপে একই তথ্যের জন্য চক্রে ঘুরল কি না, বা ১৫ নম্বর ধাপে শেষ কলটি খরচ করে যাচাইয়ের বাজেট শূন্য করে ফেলল কি না—তা দেখতে পারে না।",
+              ref: "pp. 95, 98–100",
+            },
+            {
+              questionEn: "Doesn't trajectory fingerprinting block legitimate retries or pagination?",
+              questionBn: "Trajectory fingerprint কি বৈধ retry বা পরের পৃষ্ঠা খোঁজাকে (pagination) আটকে দেবে না?",
+              answerEn: "No, because the fingerprint hashes control-relevant state (open obligations, cursor/page position, effect state, authoritative versions). In pagination the page cursor advances; after a declared wake time the clock and dependency version change. Repetition is blocked only when nothing relevant to the decision has changed.",
+              answerBn: "না, কারণ fingerprint তৈরি হয় নিয়ন্ত্রণ-সংক্রান্ত অবস্থার (বাকি দায়িত্ব, পেজ কার্সার, effect state, version) ওপর। পরের পৃষ্ঠায় গেলে কার্সার বদলায়, আর নির্ধারিত বিরতির পর সময় ও তথ্যের সংস্করণ বদলায়। কেবল তখনই পুনরাবৃত্তি আটকানো হয় যখন সিদ্ধান্তের সাথে সংশ্লিষ্ট কিছুই বদলায়নি।",
+              ref: "pp. 100–101",
+            },
+            {
+              questionEn: "Why shouldn't the agent poll an external job inside the conversation loop?",
+              questionBn: "কথোপকথনের লুপের ভেতরে বারবার বাহ্যিক কাজের খবর (poll) নেওয়া উচিত নয় কেন?",
+              answerEn: "Every conversational poll pays for a full model invocation and appends noise to the transcript even though the model has no new decision to make. Entering WAITING_EXTERNAL suspends model inference and lets cheap deterministic infrastructure wake the run only when the dependency state actually changes.",
+              answerBn: "চ্যাট লুপে প্রতিবার খবর নিতে গেলে পুরো মডেল কল খরচ হয় এবং কথোপকথনে অপ্রয়োজনীয় লেখা জমে, অথচ মডেলের তখন নতুন কোনো সিদ্ধান্তই নেওয়ার নেই। WAITING_EXTERNAL অবস্থায় গেলে মডেল কল বন্ধ থাকে এবং বাহ্যিক অবস্থার আসল পরিবর্তন ঘটলেই কেবল রানটি আবার জেগে ওঠে।",
+              ref: "p. 103",
+            },
+            {
+              questionEn: "What happens if a user clicks Cancel while a payment request is already in flight?",
+              questionBn: "পেমেন্ট পাঠানোর পর মাঝপথে যদি ব্যবহারকারী Cancel চাপেন, তবে কী হবে?",
+              answerEn: "Cancellation immediately revokes authority for any new dispatch and stops child workers, but it cannot pretend an in-flight payment vanished. The controller must still reconcile the dispatched operation and report CANCELLED with the confirmed or unresolved residual effect.",
+              answerBn: "Cancel চাপার সাথে সাথে নতুন যেকোনো কাজের অনুমতি বাতিল হয় এবং অধীনস্থ কর্মীদের থামানো হয়, কিন্তু ইতিমধ্যে পাঠানো পেমেন্ট মুছে গেছে এমন ভান করা যায় না। Controller-কে অবশ্যই পাঠানো কাজের ফলাফল মীমাংসা করতে হবে এবং কোনো প্রভাব থেকে গেলে তা স্পষ্টভাবে জানিয়ে CANCELLED ঘোষণা করতে হবে।",
+              ref: "pp. 103–104",
+            },
+            {
+              questionEn: "When should we use a fixed deterministic script (B0) instead of a governed agent loop (B3)?",
+              questionBn: "কখন আমাদের এজেন্ট লুপের (B3) বদলে সাধারণ নির্ধারিত স্ক্রিপ্ট (B0) ব্যবহার করা উচিত?",
+              answerEn: "Whenever the workflow structure is known in advance. A dynamic agent loop adds cost, latency and failure surfaces; it earns its place in production only when it beats the deterministic script and simpler bounded loops on held-out variable cases.",
+              answerBn: "যখনই কাজের ধাপগুলো আগে থেকে সুনির্দিষ্টভাবে জানা থাকে। ডায়নামিক এজেন্ট লুপ মানেই বাড়তি খরচ, সময় ও ঝুঁকির জায়গা; এটি কেবল তখনই প্রোডাকশনে জায়গা পাওয়ার যোগ্য, যখন পরিবর্তনশীল কেসগুলোতে এটি সাধারণ স্ক্রিপ্ট ও সরল লুপের চেয়ে পরীক্ষিতভাবে ভালো ফল দেয়।",
+              ref: "pp. 107–109",
+            },
+          ],
+        },
+      ],
+    },
+  ],
+
+  relatedLessons: [
+    {
+      id: "hp.02.tool-calls-to-safe-actions",
+      titleEn: "From Tool Calls to Safe Actions",
+      titleBn: "Tool Call থেকে নিরাপদ Action",
+      slug: "harness-02-tool-calls-to-safe-actions",
+      trackId: "ai-engineering",
+      estimatedMinutes: 40,
+    },
+    {
+      id: "hp.03.building-the-right-briefing",
+      titleEn: "Building the Right Briefing",
+      titleBn: "সঠিক briefing তৈরি",
+      slug: "harness-03-building-the-right-briefing",
+      trackId: "ai-engineering",
+      estimatedMinutes: 35,
+    },
+    {
+      id: "hp.05.testing-that-earns-trust",
+      titleEn: "Testing That Earns Trust",
+      titleBn: "যে testing আস্থা অর্জন করে",
+      slug: "harness-05-testing-that-earns-trust",
+      trackId: "ai-engineering",
+      estimatedMinutes: 40,
+    },
+  ],
+};
+

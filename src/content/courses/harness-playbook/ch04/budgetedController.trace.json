@@ -1,0 +1,3384 @@
+{
+ "source": "\"\"\"Chapter 04: an agent earns another turn only when the next transition is permitted, affordable, and progresses state.\"\"\"\nfrom dataclasses import dataclass, field\n\n\n@dataclass\nclass Controller:\n    state: str = \"RUNNING\"\n    calls_left: int = 5\n    reserve: int = 1\n    effect: str = \"NONE\"\n    obligations: list = field(default_factory=lambda: [\"refund\", \"verify\"])\n    history: list = field(default_factory=list)\n    log: list = field(default_factory=list)\n\n\ndef step(ctrl, action, target=\"op-7391\", outcome=\"ok\"):\n    \"\"\"Admit and execute one governed controller transition.\"\"\"\n    if ctrl.effect == \"UNKNOWN_EFFECT\" and action not in (\"reconcile\", \"wait_window\"):\n        ctrl.state = \"RECOVERING\"\n        return ctrl.state\n\n    if action == \"wait_window\":\n        ctrl.state = \"WAITING_EXTERNAL\"\n        ctrl.log.append(\"suspended: 0 model calls burned\")\n        return ctrl.state\n\n    if action not in (\"reconcile\", \"verify\") and ctrl.calls_left - 1 < ctrl.reserve:\n        ctrl.state = \"BUDGET_EXHAUSTED\"\n        ctrl.log.append(\"blocked: would dip into recovery reserve\")\n        return ctrl.state\n\n    fp = f\"{action}:{target}:{ctrl.effect}:{len(ctrl.obligations)}\"\n    if fp in ctrl.history:\n        ctrl.state = \"ABSTAINED\"\n        ctrl.log.append(f\"cycle detected on {fp}\")\n        return ctrl.state\n    ctrl.history.append(fp)\n\n    ctrl.calls_left -= 1\n    if action == \"dispatch_refund\":\n        if outcome == \"timeout\":\n            ctrl.effect = \"UNKNOWN_EFFECT\"\n            ctrl.state = \"RECOVERING\"\n        else:\n            ctrl.effect = \"CONFIRMED\"\n            ctrl.obligations.remove(\"refund\")\n    elif action == \"reconcile\":\n        if outcome == \"found\":\n            ctrl.effect = \"CONFIRMED\"\n            ctrl.obligations.remove(\"refund\")\n            ctrl.state = \"VERIFYING\"\n        else:\n            ctrl.state = \"UNRESOLVED_EFFECT\"\n    elif action == \"verify\" and \"refund\" not in ctrl.obligations:\n        ctrl.obligations.remove(\"verify\")\n        ctrl.state = \"COMPLETED\"\n    return ctrl.state\n\n\ndef delegate(ctrl, child_calls):\n    \"\"\"Allocate a sub-budget to a child worker (exercise: deduct from parent and protect reserve).\"\"\"\n    return Controller(calls_left=child_calls, reserve=0)\n\n\nif __name__ == \"__main__\":\n    c = Controller()\n    for act, out in [(\"dispatch_refund\", \"timeout\"), (\"wait_window\", \"ok\"), (\"reconcile\", \"found\"), (\"verify\", \"ok\")]:\n        step(c, act, outcome=out)\n    print(f\"# governed recovery: state={c.state} effect={c.effect} calls_left={c.calls_left} obligations={c.obligations}\")\n\n    u = Controller()\n    for act, out in [(\"dispatch_refund\", \"timeout\"), (\"reconcile\", \"unavailable\")]:\n        step(u, act, outcome=out)\n    print(f\"# reconciliation unavailable: state={u.state} effect={u.effect} obligations={u.obligations}\")\n\n    loop = Controller()\n    for _ in range(2):\n        step(loop, \"probe_ledger\")\n    print(f\"# semantic repeat: state={loop.state} log={loop.log}\")",
+ "sourcePath": "harness/ch04/budgeted_controller.py",
+ "python": "3.14.7",
+ "scenarios": {
+  "governed": [
+   {
+    "line": 18,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 18,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 22,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 22,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 27,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 32,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 32,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 33,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 33,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 37,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 39,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 39,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 40,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 41,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 42,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 43,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    },
+    "detail": "'RECOVERING'"
+   },
+   {
+    "line": 18,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 18,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'wait_window'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 22,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 22,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'wait_window'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 23,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 23,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'wait_window'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 24,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 24,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'wait_window'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 25,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 25,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'wait_window'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 25,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 25,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'wait_window'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    },
+    "detail": "'WAITING_EXTERNAL'"
+   },
+   {
+    "line": 18,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 18,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 22,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 22,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 27,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 32,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 32,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 33,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 33,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 37,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 39,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 39,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 40,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 47,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 48,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 49,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 50,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 51,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 51,
+      "locals": {
+       "ctrl": "Controller(state='WAITING_EXTERNAL')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "WAITING_EXTERNAL",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'found'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    },
+    "detail": "'VERIFYING'"
+   },
+   {
+    "line": 18,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 18,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 22,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 22,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 27,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 32,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 32,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 33,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 33,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'verify:op-7391:CONFIRMED:1'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 37,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'verify:op-7391:CONFIRMED:1'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 39,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 39,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'verify:op-7391:CONFIRMED:1'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2",
+       "verify:op-7391:CONFIRMED:1"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 40,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'verify:op-7391:CONFIRMED:1'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 2,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2",
+       "verify:op-7391:CONFIRMED:1"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 47,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'verify:op-7391:CONFIRMED:1'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 2,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2",
+       "verify:op-7391:CONFIRMED:1"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 54,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 54,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'verify:op-7391:CONFIRMED:1'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 2,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2",
+       "verify:op-7391:CONFIRMED:1"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 55,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 55,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'verify:op-7391:CONFIRMED:1'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 2,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2",
+       "verify:op-7391:CONFIRMED:1"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 56,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 56,
+      "locals": {
+       "ctrl": "Controller(state='VERIFYING')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'verify:op-7391:CONFIRMED:1'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "VERIFYING",
+      "calls_left": 2,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2",
+       "verify:op-7391:CONFIRMED:1"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='COMPLETED')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'verify:op-7391:CONFIRMED:1'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "COMPLETED",
+      "calls_left": 2,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2",
+       "verify:op-7391:CONFIRMED:1"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='COMPLETED')",
+       "action": "'verify'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'verify:op-7391:CONFIRMED:1'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "COMPLETED",
+      "calls_left": 2,
+      "reserve": 1,
+      "effect": "CONFIRMED",
+      "obligations": [],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2",
+       "verify:op-7391:CONFIRMED:1"
+      ],
+      "log": [
+       "suspended: 0 model calls burned"
+      ]
+     }
+    },
+    "detail": "'COMPLETED'"
+   }
+  ],
+  "unresolved": [
+   {
+    "line": 18,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 18,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 22,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 22,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 27,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 32,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 32,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 33,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 33,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 37,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 39,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 39,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 40,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 41,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 42,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 43,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'timeout'",
+       "fp": "'dispatch_refund:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    },
+    "detail": "'RECOVERING'"
+   },
+   {
+    "line": 18,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 18,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 22,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 22,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 27,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 32,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 32,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 33,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 33,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 37,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 39,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 39,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 40,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 47,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 48,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 53,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 53,
+      "locals": {
+       "ctrl": "Controller(state='RECOVERING')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RECOVERING",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='UNRESOLVED_EFFECT')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "UNRESOLVED_EFFECT",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='UNRESOLVED_EFFECT')",
+       "action": "'reconcile'",
+       "target": "'op-7391'",
+       "outcome": "'unavailable'",
+       "fp": "'reconcile:op-7391:UNKNOWN_EFFECT:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "UNRESOLVED_EFFECT",
+      "calls_left": 3,
+      "reserve": 1,
+      "effect": "UNKNOWN_EFFECT",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "dispatch_refund:op-7391:NONE:2",
+       "reconcile:op-7391:UNKNOWN_EFFECT:2"
+      ],
+      "log": []
+     }
+    },
+    "detail": "'UNRESOLVED_EFFECT'"
+   }
+  ],
+  "cycle": [
+   {
+    "line": 18,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 18,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 22,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 22,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 27,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 32,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 32,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 33,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 33,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 37,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 39,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 39,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 5,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 40,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 47,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 54,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 54,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 57,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    },
+    "detail": "'RUNNING'"
+   },
+   {
+    "line": 18,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 18,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 22,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 22,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 27,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 32,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 32,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 33,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 33,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 34,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 34,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 35,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 35,
+      "locals": {
+       "ctrl": "Controller(state='ABSTAINED')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "ABSTAINED",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 36,
+      "locals": {
+       "ctrl": "Controller(state='ABSTAINED')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "ABSTAINED",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": [
+       "cycle detected on probe_ledger:op-7391:NONE:2"
+      ]
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 36,
+      "locals": {
+       "ctrl": "Controller(state='ABSTAINED')",
+       "action": "'probe_ledger'",
+       "target": "'op-7391'",
+       "outcome": "'ok'",
+       "fp": "'probe_ledger:op-7391:NONE:2'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "ABSTAINED",
+      "calls_left": 4,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [
+       "probe_ledger:op-7391:NONE:2"
+      ],
+      "log": [
+       "cycle detected on probe_ledger:op-7391:NONE:2"
+      ]
+     }
+    },
+    "detail": "'ABSTAINED'"
+   }
+  ],
+  "reserve": [
+   {
+    "line": 18,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 18,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 1,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 22,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 22,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 1,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 27,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 27,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 1,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 28,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 28,
+      "locals": {
+       "ctrl": "Controller(state='RUNNING')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "RUNNING",
+      "calls_left": 1,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 29,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 29,
+      "locals": {
+       "ctrl": "Controller(state='BUDGET_EXHAUSTED')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "BUDGET_EXHAUSTED",
+      "calls_left": 1,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": []
+     }
+    }
+   },
+   {
+    "line": 30,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 30,
+      "locals": {
+       "ctrl": "Controller(state='BUDGET_EXHAUSTED')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "BUDGET_EXHAUSTED",
+      "calls_left": 1,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": [
+       "blocked: would dip into recovery reserve"
+      ]
+     }
+    }
+   },
+   {
+    "line": 30,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "step",
+      "line": 30,
+      "locals": {
+       "ctrl": "Controller(state='BUDGET_EXHAUSTED')",
+       "action": "'dispatch_refund'",
+       "target": "'op-7391'",
+       "outcome": "'ok'"
+      }
+     }
+    ],
+    "objects": {
+     "ctrl": {
+      "state": "BUDGET_EXHAUSTED",
+      "calls_left": 1,
+      "reserve": 1,
+      "effect": "NONE",
+      "obligations": [
+       "refund",
+       "verify"
+      ],
+      "history": [],
+      "log": [
+       "blocked: would dip into recovery reserve"
+      ]
+     }
+    },
+    "detail": "'BUDGET_EXHAUSTED'"
+   }
+  ]
+ }
+}

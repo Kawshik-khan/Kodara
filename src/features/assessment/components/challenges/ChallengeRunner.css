@@ -1,0 +1,240 @@
+.kodara-challenge-runner {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #F8FAFC;
+  color: #0F172A;
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.kodara-challenge-runner__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.kodara-challenge-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.kodara-challenge-back-btn:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+.kodara-challenge-runner__title-group h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.kodara-challenge-runner__tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kodara-diff-badge {
+  background: rgba(255, 94, 30, 0.1);
+  color: #FF5E1E;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: capitalize;
+}
+
+.kodara-concept-tag {
+  background: #F1F5F9;
+  color: #475569;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.kodara-solution-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 94, 30, 0.08);
+  color: #FF5E1E;
+  border: 1px solid rgba(255, 94, 30, 0.3);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.kodara-solution-btn:hover {
+  background: #FF5E1E;
+  color: #FFFFFF;
+}
+
+.kodara-challenge-runner__body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.kodara-challenge-runner__specs-panel {
+  width: 40%;
+  border-right: 1px solid #E2E8F0;
+  background: #FFFFFF;
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.kodara-specs-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.kodara-specs-section p {
+  font-size: 0.92rem;
+  color: #334155;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.kodara-requirements-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kodara-requirements-checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.kodara-req-icon {
+  color: #FF5E1E;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.kodara-challenge-runner__editor-panel {
+  width: 60%;
+  display: flex;
+  flex-direction: column;
+  background: #0F172A;
+  padding: 16px;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.kodara-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kodara-editor-lang-badge {
+  background: #1E293B;
+  color: #38BDF8;
+  font-family: monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.kodara-editor-reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.kodara-editor-reset-btn:hover {
+  color: #F8FAFC;
+}
+
+.kodara-code-editor-textarea {
+  flex: 1;
+  background: #1E293B;
+  color: #F8FAFC;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 16px;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+}
+
+.kodara-code-editor-textarea:focus {
+  border-color: #FF5E1E;
+}
+
+.kodara-runner-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kodara-btn-run-tests {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #FF5E1E;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.kodara-btn-run-tests:hover:not(:disabled) {
+  background: #E04D10;
+}
+
+.kodara-challenge-passed-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ADE80;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}

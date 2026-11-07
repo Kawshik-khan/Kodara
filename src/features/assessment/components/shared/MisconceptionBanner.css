@@ -1,0 +1,54 @@
+.kodara-misconception-banner {
+  background: rgba(255, 94, 30, 0.05);
+  border: 1px solid rgba(255, 94, 30, 0.35);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-top: 16px;
+  color: #1A1A1A;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.kodara-misconception-banner__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #D94600;
+  margin-bottom: 12px;
+}
+
+.kodara-misconception-banner__icon {
+  color: #FF5E1E;
+}
+
+.kodara-misconception-banner__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kodara-misconception-banner__wrong {
+  color: #991B1B;
+  background: rgba(239, 68, 68, 0.08);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid #EF4444;
+}
+
+.kodara-misconception-banner__correct {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #166534;
+  background: rgba(34, 197, 94, 0.08);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid #22C55E;
+}
+
+.kodara-misconception-banner__correct-icon {
+  color: #16A34A;
+  flex-shrink: 0;
+  margin-top: 2px;
+}

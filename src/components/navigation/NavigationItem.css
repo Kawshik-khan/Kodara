@@ -1,0 +1,57 @@
+.kodara-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--text-secondary, #5A5A5A);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  margin-bottom: 2px;
+}
+
+.kodara-nav-item:hover {
+  background-color: var(--bg-surface-muted, #F7F5F2);
+  color: var(--text-primary, #1A1A1A);
+}
+
+.kodara-nav-item--active {
+  background-color: var(--accent-active-pill, #FFF1EB) !important;
+  color: var(--accent-primary, #FF5E1E) !important;
+  font-weight: 600;
+}
+
+.kodara-nav-item__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.kodara-nav-item--active .kodara-nav-item__icon {
+  color: var(--accent-primary, #FF5E1E);
+}
+
+.kodara-nav-item__label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kodara-nav-item__badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background-color: var(--accent-primary);
+  color: #FFFFFF;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.kodara-nav-item--collapsed {
+  justify-content: center;
+  padding: 8px;
+}

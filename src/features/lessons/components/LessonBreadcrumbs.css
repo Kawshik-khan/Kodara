@@ -1,0 +1,29 @@
+.kodara-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.kodara-breadcrumbs__link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.12s ease;
+}
+
+.kodara-breadcrumbs__link:hover {
+  color: #FF5E1E;
+}
+
+.kodara-breadcrumbs__separator {
+  color: #CCC;
+  font-size: 10px;
+}
+
+.kodara-breadcrumbs__current {
+  color: #FF5E1E;
+  font-weight: 600;
+}

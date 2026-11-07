@@ -1,0 +1,1351 @@
+{
+ "source": "\"\"\"Chapter 20: a skill is executable organizational judgment with a probabilistic linker.\"\"\"\nfrom dataclasses import dataclass, field\n\n\n@dataclass\nclass Skill:\n    id: str = \"duplicate-charge-investigation\"\n    version: str = \"4.2.0\"\n    digest: str = \"sha256:420a\"\n    excluded: tuple = (\"active_chargeback\", \"fraud_claim\")\n    tools: tuple = (\"billing_read\", \"policy_read\", \"case_proposal_write\", \"refund_create\")\n    compat: str = \"QUALIFIED\"\n    assurance: str = \"ACTIVE\"\n\n\n@dataclass\nclass ActivationRecord:\n    status: str = \"NOMINATED\"\n    reason: str = \"OK\"\n    effective_tools: list = field(default_factory=list)\n    bom: list = field(default_factory=list)\n\n\ndef admit_skill(rec, skill, signals, run_grant, policy_healthy=True):\n    \"\"\"Deterministic admission gate: discovery or nomination never authorizes loading by itself.\"\"\"\n    if skill.assurance != \"ACTIVE\":\n        rec.status = \"DENIED\"\n        rec.reason = \"SKILL_REVOKED\"\n        return rec.status\n    if skill.compat != \"QUALIFIED\":\n        rec.status = \"DENIED\"\n        rec.reason = f\"COMPAT_{skill.compat}\"\n        return rec.status\n    for sig in signals:\n        if sig in skill.excluded:\n            rec.status = \"REJECTED\"\n            rec.reason = f\"EXCLUDED:{sig}\"\n            return rec.status\n    if not policy_healthy:\n        rec.status = \"SUSPENDED\"\n        rec.reason = \"POLICY_DEPENDENCY_UNAVAILABLE\"\n        return rec.status\n\n    rec.effective_tools = [t for t in skill.tools if t in run_grant]\n    rec.bom = [f\"{skill.id}@{skill.version}\", skill.digest, \"example:policy@31(non-authoritative)\"]\n    rec.status = \"ADMITTED\"\n    rec.reason = \"PROPOSAL_ONLY_GRANT\"\n    return rec.status\n\n\ndef resume_skill_run(rec, skill):\n    \"\"\"Re-verify assurance state before resuming a suspended skill run.\"\"\"\n    if skill.assurance != \"ACTIVE\":\n        rec.status = \"REVOKED_STOPPED\"\n        rec.reason = \"STOP_AND_RECONCILE\"\n        return rec.status\n    rec.status = \"RESUMED\"\n    return rec.status\n\n\ndef promote_candidate_skill(author_role, chargeback_false_activations):\n    \"\"\"Gate skill publication on independent qualification and zero consequential false activations (exercise).\"\"\"\n    return \"PUBLISHED\"\n\n\nif __name__ == \"__main__\":\n    grant = (\"billing_read\", \"policy_read\", \"case_proposal_write\")\n    s = Skill()\n    r1 = ActivationRecord()\n    admit_skill(r1, s, (\"authenticated_customer\", \"two_charges\"), grant)\n    print(f\"# admitted: status={r1.status} tools={r1.effective_tools} bom={r1.bom}\")\n\n    r2 = ActivationRecord()\n    admit_skill(r2, s, (\"authenticated_customer\", \"active_chargeback\"), grant)\n    print(f\"# chargeback exclusion: status={r2.status} reason={r2.reason}\")",
+ "sourcePath": "harness/ch20/skill_linker.py",
+ "python": "3.14.7",
+ "scenarios": {
+  "admitted": [
+   {
+    "line": 26,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 26,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 30,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 30,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 34,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 34,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 35,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 35,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'authenticated_customer'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 34,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 34,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'authenticated_customer'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 35,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 35,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 34,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 34,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 39,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 39,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 44,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 44,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'",
+       "t": "'billing_read'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 44,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'",
+       "t": "'policy_read'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 44,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'",
+       "t": "'case_proposal_write'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 44,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'",
+       "t": "'refund_create'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 45,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 45,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [
+       "billing_read",
+       "policy_read",
+       "case_proposal_write"
+      ],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 46,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [
+       "billing_read",
+       "policy_read",
+       "case_proposal_write"
+      ],
+      "bom": [
+       "duplicate-charge-investigation@4.2.0",
+       "sha256:420a",
+       "example:policy@31(non-authoritative)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 47,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 47,
+      "locals": {
+       "rec": "ActivationRecord(status='ADMITTED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "ADMITTED",
+      "reason": "OK",
+      "effective_tools": [
+       "billing_read",
+       "policy_read",
+       "case_proposal_write"
+      ],
+      "bom": [
+       "duplicate-charge-investigation@4.2.0",
+       "sha256:420a",
+       "example:policy@31(non-authoritative)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 48,
+      "locals": {
+       "rec": "ActivationRecord(status='ADMITTED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "ADMITTED",
+      "reason": "PROPOSAL_ONLY_GRANT",
+      "effective_tools": [
+       "billing_read",
+       "policy_read",
+       "case_proposal_write"
+      ],
+      "bom": [
+       "duplicate-charge-investigation@4.2.0",
+       "sha256:420a",
+       "example:policy@31(non-authoritative)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 48,
+      "locals": {
+       "rec": "ActivationRecord(status='ADMITTED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "ADMITTED",
+      "reason": "PROPOSAL_ONLY_GRANT",
+      "effective_tools": [
+       "billing_read",
+       "policy_read",
+       "case_proposal_write"
+      ],
+      "bom": [
+       "duplicate-charge-investigation@4.2.0",
+       "sha256:420a",
+       "example:policy@31(non-authoritative)"
+      ]
+     }
+    },
+    "detail": "'ADMITTED'"
+   }
+  ],
+  "excluded": [
+   {
+    "line": 26,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 26,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'active_chargeback')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 30,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 30,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'active_chargeback')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 34,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 34,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'active_chargeback')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 35,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 35,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'active_chargeback')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'authenticated_customer'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 34,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 34,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'active_chargeback')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'authenticated_customer'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 35,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 35,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'active_chargeback')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'active_chargeback'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 36,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'active_chargeback')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'active_chargeback'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 37,
+      "locals": {
+       "rec": "ActivationRecord(status='REJECTED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'active_chargeback')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'active_chargeback'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "REJECTED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 38,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 38,
+      "locals": {
+       "rec": "ActivationRecord(status='REJECTED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'active_chargeback')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'active_chargeback'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "REJECTED",
+      "reason": "EXCLUDED:active_chargeback",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 38,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 38,
+      "locals": {
+       "rec": "ActivationRecord(status='REJECTED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'active_chargeback')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True",
+       "sig": "'active_chargeback'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "REJECTED",
+      "reason": "EXCLUDED:active_chargeback",
+      "effective_tools": [],
+      "bom": []
+     }
+    },
+    "detail": "'REJECTED'"
+   }
+  ],
+  "revoked": [
+   {
+    "line": 26,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 26,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 30,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 30,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 34,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 34,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 35,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 35,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False",
+       "sig": "'authenticated_customer'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 34,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 34,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False",
+       "sig": "'authenticated_customer'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 35,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 35,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 34,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 34,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 39,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 39,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 40,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 41,
+      "locals": {
+       "rec": "ActivationRecord(status='SUSPENDED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "SUSPENDED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 42,
+      "locals": {
+       "rec": "ActivationRecord(status='SUSPENDED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "SUSPENDED",
+      "reason": "POLICY_DEPENDENCY_UNAVAILABLE",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 42,
+      "locals": {
+       "rec": "ActivationRecord(status='SUSPENDED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "False",
+       "sig": "'two_charges'"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "SUSPENDED",
+      "reason": "POLICY_DEPENDENCY_UNAVAILABLE",
+      "effective_tools": [],
+      "bom": []
+     }
+    },
+    "detail": "'SUSPENDED'"
+   },
+   {
+    "line": 53,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_skill_run",
+      "line": 53,
+      "locals": {
+       "rec": "ActivationRecord(status='SUSPENDED')",
+       "skill": "Skill(id='duplicate-charge-investigation')"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "SUSPENDED",
+      "reason": "POLICY_DEPENDENCY_UNAVAILABLE",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 54,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_skill_run",
+      "line": 54,
+      "locals": {
+       "rec": "ActivationRecord(status='SUSPENDED')",
+       "skill": "Skill(id='duplicate-charge-investigation')"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "SUSPENDED",
+      "reason": "POLICY_DEPENDENCY_UNAVAILABLE",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 55,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_skill_run",
+      "line": 55,
+      "locals": {
+       "rec": "ActivationRecord(status='REVOKED_STOPPED')",
+       "skill": "Skill(id='duplicate-charge-investigation')"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "REVOKED_STOPPED",
+      "reason": "POLICY_DEPENDENCY_UNAVAILABLE",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 56,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "resume_skill_run",
+      "line": 56,
+      "locals": {
+       "rec": "ActivationRecord(status='REVOKED_STOPPED')",
+       "skill": "Skill(id='duplicate-charge-investigation')"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "REVOKED_STOPPED",
+      "reason": "STOP_AND_RECONCILE",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 56,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "resume_skill_run",
+      "line": 56,
+      "locals": {
+       "rec": "ActivationRecord(status='REVOKED_STOPPED')",
+       "skill": "Skill(id='duplicate-charge-investigation')"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "REVOKED_STOPPED",
+      "reason": "STOP_AND_RECONCILE",
+      "effective_tools": [],
+      "bom": []
+     }
+    },
+    "detail": "'REVOKED_STOPPED'"
+   }
+  ],
+  "untested": [
+   {
+    "line": 26,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 26,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 30,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 30,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 31,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 31,
+      "locals": {
+       "rec": "ActivationRecord(status='NOMINATED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "NOMINATED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 32,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 32,
+      "locals": {
+       "rec": "ActivationRecord(status='DENIED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "DENIED",
+      "reason": "OK",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 33,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 33,
+      "locals": {
+       "rec": "ActivationRecord(status='DENIED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "DENIED",
+      "reason": "COMPAT_UNTESTED",
+      "effective_tools": [],
+      "bom": []
+     }
+    }
+   },
+   {
+    "line": 33,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "admit_skill",
+      "line": 33,
+      "locals": {
+       "rec": "ActivationRecord(status='DENIED')",
+       "skill": "Skill(id='duplicate-charge-investigation')",
+       "signals": "('authenticated_customer', 'two_charges')",
+       "run_grant": "('billing_read', 'policy_read', 'case_proposal_write')",
+       "policy_healthy": "True"
+      }
+     }
+    ],
+    "objects": {
+     "rec": {
+      "status": "DENIED",
+      "reason": "COMPAT_UNTESTED",
+      "effective_tools": [],
+      "bom": []
+     }
+    },
+    "detail": "'DENIED'"
+   }
+  ]
+ }
+}

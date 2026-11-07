@@ -1,0 +1,73 @@
+/* Technical Cartesian Coordinate Grid Background */
+.bg-technical-grid,
+.grid-bg {
+  background-color: var(--bg-canvas);
+  background-image:
+    linear-gradient(to right, var(--grid-line-major-color, rgba(255, 94, 30, 0.22)) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-major-color, rgba(255, 94, 30, 0.22)) 1px, transparent 1px),
+    linear-gradient(to right, var(--grid-line-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-color) 1px, transparent 1px);
+  background-size:
+    var(--grid-size-major, 96px) var(--grid-size-major, 96px),
+    var(--grid-size-major, 96px) var(--grid-size-major, 96px),
+    var(--grid-size) var(--grid-size),
+    var(--grid-size) var(--grid-size);
+  background-position: center top;
+}
+
+/* Local Card Technical Grid Overlay */
+.card-technical-grid {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-technical-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--grid-line-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-color) 1px, transparent 1px);
+  background-size: 16px 16px;
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Mini Cartesian Coordinate Grid Box (used in Quote card, Teaser card, Skill Map) */
+.mini-grid-graphic {
+  position: relative;
+  width: 56px;
+  height: 42px;
+  background-image:
+    linear-gradient(to right, rgba(255, 94, 30, 0.24) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 94, 30, 0.24) 1px, transparent 1px);
+  background-size: 14px 14px;
+  border-right: 1px solid rgba(255, 94, 30, 0.24);
+  border-bottom: 1px solid rgba(255, 94, 30, 0.24);
+}
+
+/* Background Coordinate Grid Layer: Fixed ambient technical grid with subtle top warmth */
+.bg-grid-layer,
+.bg-blur-grid-layer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  background-color: var(--bg-canvas);
+  background-image:
+    linear-gradient(to right, var(--grid-line-major-color, rgba(255, 94, 30, 0.22)) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-major-color, rgba(255, 94, 30, 0.22)) 1px, transparent 1px),
+    linear-gradient(to right, var(--grid-line-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-color) 1px, transparent 1px),
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 94, 30, 0.07) 0%, transparent 80%);
+  background-size:
+    var(--grid-size-major, 96px) var(--grid-size-major, 96px),
+    var(--grid-size-major, 96px) var(--grid-size-major, 96px),
+    var(--grid-size) var(--grid-size),
+    var(--grid-size) var(--grid-size),
+    100% 100%;
+  background-position: center top, center top, center top, center top, center top;
+}

@@ -1,0 +1,4 @@
+.kodara-vis-grid {
+  opacity: 0.9;
+  transition: opacity var(--transition-base, 150ms ease);
+}

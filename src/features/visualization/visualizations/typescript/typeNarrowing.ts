@@ -1,0 +1,402 @@
+import { VisualizationDefinition } from "../../types/visualization.types";
+
+export const TYPE_NARROWING_VISUALIZATION: VisualizationDefinition = {
+  id: "typescript.type-narrowing",
+  version: 1,
+  category: "type-system",
+  titleEn: "Type Narrowing & Control Flow Analysis",
+  titleBn: "টাইপ ন্যারোয়িং এবং কন্ট্রোল ফ্লো অ্যানালাইসিস",
+  subtitleEn: "Witness how TypeScript's compiler eliminates impossible union variants using conditional evidence.",
+  subtitleBn: "শর্ত সাপেক্ষে কম্পাইলার কীভাবে অসম্ভব ইউনিয়ন শাখাগুলো দূর করে নির্দিষ্ট টাইপে পৌঁছায় তা দেখুন।",
+  codeLanguage: "typescript",
+  codeSnippet: `type ApiResponse =
+  | { status: "loading" }
+  | { status: "success"; data: string }
+  | { status: "error"; message: string };
+
+function handle(res: ApiResponse) {
+  if (res.status === "success") {
+    console.log(res.data);
+  }
+}`,
+  concepts: [
+    "concept.type-narrowing",
+    "concept.control-flow-analysis",
+    "concept.discriminated-unions",
+  ],
+  steps: [
+    {
+      id: "step-1",
+      stepIndex: 0,
+      titleEn: "Step 1: The Broad Union (Uncertainty)",
+      titleBn: "ধাপ ১: সার্বিক ইউনিয়ন (অনিশ্চয়তা)",
+      explanationEn:
+        "At function entry, parameter 'res' holds any of the three union members. Attempting to read 'res.data' here causes a compile error because 'data' does not exist on 'loading' or 'error'.",
+      explanationBn:
+        "ফাংশন শুরুর মুহূর্তে 'res' তিনটি সম্ভাব্য অবজেক্টের যেকোনো একটি হতে পারে। এখানে সরাসরি 'res.data' পড়তে গেলে কম্পাইল এরর হবে কারণ 'loading' বা 'error' শাখায় 'data' প্রোপার্টি নেই।",
+      whyEn:
+        "A union type represents uncertainty. TypeScript only allows accessing properties shared across ALL union members.",
+      whyBn:
+        "ইউনিয়ন মানেই অনিশ্চয়তা। টাইপস্ক্রিপ্ট কেবল সেইসব প্রোপার্টি ব্যবহারের অনুমতি দেয় যা ইউনিয়নের প্রতিটি উপাদানে বিদ্যমান।",
+      activeLines: [6],
+      scene: {
+        viewBox: { width: 680, height: 340 },
+        nodes: [
+          {
+            id: "union-container",
+            type: "environment-record",
+            label: "Parameter: res (ApiResponse)",
+            subLabel: "Union of 3 variants",
+            x: 40,
+            y: 30,
+            width: 600,
+            height: 280,
+            state: "active",
+          },
+          {
+            id: "variant-loading",
+            type: "generic-card",
+            label: '{ status: "loading" }',
+            subLabel: "Variant A",
+            x: 70,
+            y: 90,
+            width: 160,
+            height: 70,
+            state: "active",
+            parentId: "union-container",
+          },
+          {
+            id: "variant-success",
+            type: "generic-card",
+            label: '{ status: "success" }',
+            subLabel: "data: string",
+            x: 260,
+            y: 90,
+            width: 160,
+            height: 70,
+            state: "active",
+            parentId: "union-container",
+          },
+          {
+            id: "variant-error",
+            type: "generic-card",
+            label: '{ status: "error" }',
+            subLabel: "message: string",
+            x: 450,
+            y: 90,
+            width: 160,
+            height: 70,
+            state: "active",
+            parentId: "union-container",
+          },
+          {
+            id: "status-tag",
+            type: "binding",
+            label: 'Common Discriminant: .status',
+            subLabel: '"loading" | "success" | "error"',
+            x: 180,
+            y: 200,
+            width: 320,
+            height: 60,
+            state: "idle",
+            parentId: "union-container",
+          },
+        ],
+        edges: [],
+        annotations: [
+          {
+            id: "ann-1",
+            targetNodeId: "variant-success",
+            textEn: "res.data is NOT accessible yet!",
+            textBn: "res.data এখনো অ্যাক্সেসযোগ্য নয়!",
+            position: "bottom",
+            badgeType: "warning",
+          },
+        ],
+      },
+      inspectorDetails: {
+        "variant-success": {
+          titleEn: "Variant: SuccessApiResponse",
+          titleBn: "শাখা: SuccessApiResponse",
+          kind: "Union Constituent",
+          detailsEn: "Contains 'data: string', but cannot be accessed until narrowed.",
+          detailsBn: "'data: string' ধারণ করে, কিন্তু ন্যারো করার পূর্বে ব্যবহার সম্ভব নয়।",
+        },
+      },
+    },
+    {
+      id: "step-2",
+      stepIndex: 1,
+      titleEn: "Step 2: Inspecting the Discriminant Tag",
+      titleBn: "ধাপ ২: ডিসক্রিমিন্যান্ট ট্যাগ যাচাই",
+      explanationEn:
+        "The runtime reaches the 'if (res.status === \"success\")' branch check. The compiler checks which union variants could possibly satisfy this equality check.",
+      explanationBn:
+        "কোড 'if (res.status === \"success\")' লাইনে পৌঁছায়। কম্পাইলার যাচাই করে কোন কোন ভ্যারিয়্যান্ট এই সমতা পূরণ করতে পারে।",
+      whyEn:
+        "Because 'status' is a literal discriminant, testing its value provides mathematical proof about which variant is active.",
+      whyBn:
+        "'status' একটি লিটারেল ডিসক্রিমিন্যান্ট হওয়ায় এর মান যাচাই করে কোন অবজেক্টটি সক্রিয় রয়েছে তা নিশ্চিতভাবে প্রমাণ করা যায়।",
+      activeLines: [7],
+      scene: {
+        viewBox: { width: 680, height: 340 },
+        nodes: [
+          {
+            id: "union-container",
+            type: "environment-record",
+            label: "Control Flow Check: res.status === 'success'",
+            subLabel: "Evaluating branches",
+            x: 40,
+            y: 30,
+            width: 600,
+            height: 280,
+            state: "active",
+          },
+          {
+            id: "variant-loading",
+            type: "generic-card",
+            label: '{ status: "loading" }',
+            subLabel: '"loading" !== "success" ✗',
+            x: 70,
+            y: 90,
+            width: 160,
+            height: 70,
+            state: "idle",
+            parentId: "union-container",
+          },
+          {
+            id: "variant-success",
+            type: "generic-card",
+            label: '{ status: "success" }',
+            subLabel: '"success" === "success" ✓',
+            x: 260,
+            y: 90,
+            width: 160,
+            height: 70,
+            state: "active",
+            parentId: "union-container",
+          },
+          {
+            id: "variant-error",
+            type: "generic-card",
+            label: '{ status: "error" }',
+            subLabel: '"error" !== "success" ✗',
+            x: 450,
+            y: 90,
+            width: 160,
+            height: 70,
+            state: "idle",
+            parentId: "union-container",
+          },
+          {
+            id: "cfa-box",
+            type: "binding",
+            label: "Control Flow Analysis (CFA)",
+            subLabel: "Eliminating 'loading' and 'error' from this branch",
+            x: 180,
+            y: 200,
+            width: 320,
+            height: 60,
+            state: "active",
+            parentId: "union-container",
+          },
+        ],
+        edges: [
+          {
+            id: "edge-elim-1",
+            fromNodeId: "cfa-box",
+            toNodeId: "variant-loading",
+            type: "pointer",
+            label: "pruned",
+            state: "idle",
+          },
+          {
+            id: "edge-keep",
+            fromNodeId: "cfa-box",
+            toNodeId: "variant-success",
+            type: "pointer",
+            label: "matched",
+            state: "active",
+          },
+          {
+            id: "edge-elim-2",
+            fromNodeId: "cfa-box",
+            toNodeId: "variant-error",
+            type: "pointer",
+            label: "pruned",
+            state: "idle",
+          },
+        ],
+        annotations: [
+          {
+            id: "ann-2",
+            targetNodeId: "cfa-box",
+            textEn: "Compiler prunes impossible branches",
+            textBn: "কম্পাইলার অসম্ভব শাখাগুলোকে ছাঁটাই করে",
+            position: "bottom",
+            badgeType: "info",
+          },
+        ],
+      },
+    },
+    {
+      id: "step-3",
+      stepIndex: 2,
+      titleEn: "Step 3: Inside the Narrowed Scope",
+      titleBn: "ধাপ ৩: ন্যারো হওয়া স্কোপের অভ্যন্তর",
+      explanationEn:
+        "Inside the if-block, the type of 'res' has been refined from the 3-part union down to strictly '{ status: \"success\"; data: string }'. Now 'res.data' is 100% type-safe!",
+      explanationBn:
+        "if-ব্লকের ভেতরে 'res' এর টাইপ ৩টি শাখা থেকে ন্যারো হয়ে সুনির্দিষ্ট '{ status: \"success\"; data: string }' এ পরিণত হয়েছে। এখন 'res.data' সম্পূর্ণ নিরাপদ!",
+      whyEn:
+        "The conditional check provided the evidence the compiler needed to eliminate uncertainty.",
+      whyBn:
+        "শর্তমূলক যাচাইয়ের মাধ্যমে কম্পাইলার নিশ্চিত প্রমাণ পেয়েছে, ফলে অনিশ্চয়তা দূরীভূত হয়েছে।",
+      activeLines: [8],
+      scene: {
+        viewBox: { width: 680, height: 340 },
+        nodes: [
+          {
+            id: "narrowed-container",
+            type: "environment-record",
+            label: "Narrowed Scope (Inside if-block)",
+            subLabel: "res: { status: 'success'; data: string }",
+            x: 60,
+            y: 40,
+            width: 560,
+            height: 250,
+            state: "active",
+          },
+          {
+            id: "refined-type",
+            type: "generic-card",
+            label: "Refined res",
+            subLabel: "Type: SuccessVariant",
+            x: 100,
+            y: 110,
+            width: 180,
+            height: 80,
+            state: "created",
+            parentId: "narrowed-container",
+          },
+          {
+            id: "data-prop",
+            type: "binding",
+            label: ".data: string",
+            subLabel: "Verified present & safe",
+            x: 350,
+            y: 110,
+            width: 220,
+            height: 80,
+            state: "active",
+            parentId: "narrowed-container",
+          },
+        ],
+        edges: [
+          {
+            id: "edge-access",
+            fromNodeId: "refined-type",
+            toNodeId: "data-prop",
+            type: "pointer",
+            label: "safe access",
+            state: "active",
+          },
+        ],
+        annotations: [
+          {
+            id: "ann-3",
+            targetNodeId: "data-prop",
+            textEn: "res.data is guaranteed to exist!",
+            textBn: "res.data বিদ্যমান থাকার শতভাগ নিশ্চয়তা!",
+            position: "top",
+            badgeType: "success",
+          },
+        ],
+      },
+      inspectorDetails: {
+        "refined-type": {
+          titleEn: "Narrowed Type: res",
+          titleBn: "ন্যারো টাইপ: res",
+          kind: "Refined Object Type",
+          detailsEn: "Compiler guarantees res is { status: 'success'; data: string } on this branch.",
+          detailsBn: "কম্পাইলার নিশ্চিত করেছে যে এই ব্রাঞ্চে res কেবল success টাইপই হতে পারে।",
+        },
+      },
+    },
+    {
+      id: "step-4",
+      stepIndex: 3,
+      titleEn: "Step 4: Exhaustiveness & Remaining Possibilities",
+      titleBn: "ধাপ ৪: এক্সহস্টিভনেস এবং অবশিষ্ট সম্ভাবনা",
+      explanationEn:
+        "Outside the if-block, what type does 'res' have? It has '{ status: \"loading\" } | { status: \"error\" }'. If you check both of those, the remaining type becomes 'never'!",
+      explanationBn:
+        "if-ব্লকের বাইরে 'res' এর টাইপ কী থাকে? বাকি দুটি শাখা '{ status: \"loading\" } | { status: \"error\" }'। যদি সে দুটিও চেক করা হয়, তবে অবশিষ্ট টাইপ দাঁড়ায় 'never'!",
+      whyEn:
+        "When all possible union variants have been handled, the bottom type 'never' proves mathematically that no branches were overlooked.",
+      whyBn:
+        "যখন সমস্ত শাখা হ্যান্ডেল করা শেষ হয়, তখন 'never' গাণিতিকভাবে প্রমাণ করে যে কোনো শাখা ভুলে বাদ পড়েনি।",
+      activeLines: [9],
+      scene: {
+        viewBox: { width: 680, height: 340 },
+        nodes: [
+          {
+            id: "exhaustive-container",
+            type: "environment-record",
+            label: "Else / Fallthrough Scope",
+            subLabel: "Remaining union space",
+            x: 60,
+            y: 40,
+            width: 560,
+            height: 250,
+            state: "idle",
+          },
+          {
+            id: "remaining-unions",
+            type: "generic-card",
+            label: "Remaining: loading | error",
+            subLabel: "'success' has been removed",
+            x: 100,
+            y: 110,
+            width: 220,
+            height: 80,
+            state: "active",
+            parentId: "exhaustive-container",
+          },
+          {
+            id: "never-target",
+            type: "generic-card",
+            label: "Exhaustive Default: never",
+            subLabel: "Bottom type (unreachable)",
+            x: 370,
+            y: 110,
+            width: 210,
+            height: 80,
+            state: "idle",
+            parentId: "exhaustive-container",
+          },
+        ],
+        edges: [
+          {
+            id: "edge-never",
+            fromNodeId: "remaining-unions",
+            toNodeId: "never-target",
+            type: "pointer",
+            label: "handled -> never",
+            state: "idle",
+          },
+        ],
+        annotations: [
+          {
+            id: "ann-4",
+            targetNodeId: "never-target",
+            textEn: "never catches unhandled future cases",
+            textBn: "never ভবিষ্যতে যোগ হওয়া নতুন কেসও ধরে ফেলে",
+            position: "bottom",
+            badgeType: "info",
+          },
+        ],
+      },
+    },
+  ],
+};

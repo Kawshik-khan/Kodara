@@ -1,0 +1,81 @@
+.kodara-hood {
+  background: #ffffff;
+  border: 1px solid var(--border-card, rgba(255, 94, 30, 0.35));
+  border-radius: var(--radius-card, 14px);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-card);
+  margin: var(--space-4) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kodara-hood__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kodara-hood__badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #FF5E1E;
+  background: #FFF1EB;
+  border: 1px solid rgba(255, 94, 30, 0.3);
+  border-radius: 4px;
+  padding: 2px 7px;
+  text-transform: uppercase;
+}
+
+.kodara-hood__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.kodara-hood__intro {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.kodara-hood__pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.kodara-hood__step-card {
+  background: #FAF8F5;
+  border: 1px solid var(--border-card-subtle, rgba(255, 94, 30, 0.18));
+  border-left: 3px solid #FF5E1E;
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kodara-hood__step-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.kodara-hood__step-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.kodara-hood__note {
+  background: #FFFBF7;
+  border: 1px dashed #FFB299;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}

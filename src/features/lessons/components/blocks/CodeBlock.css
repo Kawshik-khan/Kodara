@@ -1,0 +1,161 @@
+.kodara-code-block {
+  background: #1A1A1A;
+  border: 1px solid var(--border-card, rgba(255, 94, 30, 0.35));
+  border-radius: var(--radius-card, 14px);
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  margin: var(--space-4) 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kodara-code-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #141414;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.kodara-code-block__title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kodara-code-block__lang-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #FF5E1E;
+  background: rgba(255, 94, 30, 0.15);
+  border: 1px solid rgba(255, 94, 30, 0.3);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.kodara-code-block__title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #A3A3A3;
+}
+
+.kodara-code-block__copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #D4D4D4;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kodara-code-block__copy-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #FF5E1E;
+  color: #FFFFFF;
+}
+
+.kodara-code-block__body {
+  overflow-x: auto;
+  padding: 14px 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.kodara-code-block__line {
+  display: flex;
+  align-items: flex-start;
+  padding: 0 16px;
+  min-height: 22px;
+  transition: background 0.12s ease;
+}
+
+.kodara-code-block__line--highlighted {
+  background: rgba(255, 94, 30, 0.12);
+  border-left: 3px solid #FF5E1E;
+  padding-left: 13px;
+}
+
+.kodara-code-block__line--interactive {
+  cursor: pointer;
+}
+
+.kodara-code-block__line--interactive:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.kodara-code-block__line-num {
+  width: 32px;
+  flex-shrink: 0;
+  user-select: none;
+  color: #666666;
+  font-size: 11px;
+  text-align: right;
+  margin-right: 16px;
+  padding-top: 1px;
+}
+
+.kodara-code-block__line-content {
+  flex: 1;
+  white-space: pre;
+  color: #E6E6E6;
+}
+
+/* Line Explanation Tray */
+.kodara-code-block__explanation-tray {
+  margin: 4px 16px 8px 48px;
+  padding: 8px 12px;
+  background: #242424;
+  border-left: 2px solid #FF5E1E;
+  border-radius: 0 6px 6px 0;
+  color: #FFE6D9;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  animation: traySlideDown 0.15s ease-out;
+}
+
+@keyframes traySlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Syntax Token Colors */
+.token-keyword {
+  color: #FF7B72;
+  font-weight: 600;
+}
+.token-string {
+  color: #A5D6FF;
+}
+.token-number {
+  color: #79C0FF;
+}
+.token-comment {
+  color: #8B949E;
+  font-style: italic;
+}
+.token-function {
+  color: #D2A8FF;
+}
+.token-type {
+  color: #FFA657;
+}
+.token-punctuation {
+  color: #C9D1D9;
+}

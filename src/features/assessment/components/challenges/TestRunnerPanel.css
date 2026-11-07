@@ -1,0 +1,165 @@
+.kodara-test-runner-panel {
+  background: #0F172A;
+  color: #F8FAFC;
+  border-radius: 12px;
+  padding: 16px 20px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.kodara-test-runner-panel--loading,
+.kodara-test-runner-panel--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 120px;
+  color: #94A3B8;
+  text-align: center;
+}
+
+.kodara-test-runner-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #FF5E1E;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: kodara-spin 0.8s linear infinite;
+}
+
+@keyframes kodara-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.kodara-test-runner-summary {
+  border-bottom: 1px solid #334155;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.kodara-test-runner-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.kodara-status-pill {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.kodara-status-pill--passed {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ADE80;
+}
+
+.kodara-status-pill--failed,
+.kodara-status-pill--compile-error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #F87171;
+}
+
+.kodara-status-pill--partial {
+  background: rgba(234, 179, 8, 0.2);
+  color: #FACC15;
+}
+
+.kodara-test-runner-counts {
+  color: #E2E8F0;
+  font-weight: 600;
+}
+
+.kodara-test-runner-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #64748B;
+}
+
+.kodara-test-runner-feedback {
+  color: #CBD5E1;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.kodara-test-runner-compile-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: #FECDD3;
+  margin-bottom: 12px;
+}
+
+.kodara-compile-error-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: #F87171;
+  margin-bottom: 4px;
+}
+
+.kodara-test-cases-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kodara-test-case-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #1E293B;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border-left: 3px solid transparent;
+}
+
+.kodara-test-case-item--passed {
+  border-left-color: #22C55E;
+}
+
+.kodara-test-case-item--failed {
+  border-left-color: #EF4444;
+}
+
+.kodara-icon--passed {
+  color: #4ADE80;
+}
+
+.kodara-icon--failed {
+  color: #F87171;
+}
+
+.kodara-test-case-details {
+  flex: 1;
+}
+
+.kodara-test-case-desc {
+  color: #F1F5F9;
+  font-size: 0.85rem;
+}
+
+.kodara-test-case-error {
+  color: #F87171;
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.kodara-test-case-outputs {
+  font-size: 0.8rem;
+  color: #94A3B8;
+  margin-top: 4px;
+}
+
+.kodara-output-label {
+  color: #64748B;
+}

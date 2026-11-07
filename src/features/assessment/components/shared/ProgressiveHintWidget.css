@@ -1,0 +1,76 @@
+.kodara-progressive-hint-widget {
+  border: 1px dashed rgba(255, 94, 30, 0.35);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-top: 16px;
+}
+
+.kodara-progressive-hint-widget__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kodara-progressive-hint-widget__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #333333;
+  font-size: 0.9rem;
+}
+
+.kodara-progressive-hint-widget__icon {
+  color: #FF5E1E;
+}
+
+.kodara-progressive-hint-widget__unlock-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid #FF5E1E;
+  color: #FF5E1E;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.kodara-progressive-hint-widget__unlock-btn:hover {
+  background: #FF5E1E;
+  color: #FFFFFF;
+}
+
+.kodara-progressive-hint-widget__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.kodara-progressive-hint-widget__item {
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.kodara-progressive-hint-widget__level-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #FF5E1E;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.kodara-progressive-hint-widget__text {
+  font-size: 0.9rem;
+  color: #1F2937;
+  line-height: 1.45;
+}

@@ -1,0 +1,120 @@
+/* Kodara Canonical Design Tokens (White + Precision Orange + Technical Grid) */
+:root {
+  /* Surfaces */
+  --bg-app: #FAF8F5;
+  --bg-canvas: #FAF8F5;
+  --bg-surface: #FFFFFF;
+  --bg-surface-muted: #F7F5F2;
+  --bg-surface-subtle: #F3EFEA;
+  --bg-card: #FFFFFF;
+  --bg-overlay: rgba(255, 255, 255, 0.94);
+
+  /* Kodara Brand Accents (Precision Orange) */
+  --accent-primary: #FF5E1E;
+  --accent-primary-hover: #E54E10;
+  --accent-primary-active: #CC440B;
+  --accent-soft: rgba(255, 94, 30, 0.08);
+  --accent-subtle: rgba(255, 94, 30, 0.04);
+  --accent-active-pill: #FFF1EB;
+  --accent-hover-pill: #FFF7F3;
+  --accent-contrast: #FFFFFF;
+
+  /* Typography & Neutrals */
+  --text-primary: #1A1A1A;
+  --text-secondary: #5A5A5A;
+  --text-muted: #8C8C8C;
+  --text-inverse: #FFFFFF;
+  --text-brand: #FF5E1E;
+
+  /* Font Sizes */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+
+  /* Line Heights */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  /* Borders & Rules */
+  --border-subtle: #F0EDE8;
+  --border-light: #EBEBEB;
+  --border-default: #E5E5E5;
+  --border-card: rgba(255, 94, 30, 0.35);
+  --border-card-hover: #FF5E1E;
+  --border-card-interactive: rgba(255, 94, 30, 0.5);
+  --border-card-subtle: rgba(255, 94, 30, 0.18);
+  --border-strong: #D5D2CD;
+  --border-brand: #FF5E1E;
+  --border-brand-soft: rgba(255, 94, 30, 0.35);
+  --border-brand-subtle: rgba(255, 94, 30, 0.16);
+
+  /* Status Colors */
+  --color-success: #16A34A;
+  --color-success-soft: rgba(22, 163, 74, 0.08);
+  --color-warning: #D97706;
+  --color-warning-soft: rgba(217, 119, 6, 0.08);
+  --color-danger: #DC2626;
+  --color-danger-soft: rgba(220, 38, 38, 0.08);
+  --color-error: #DC2626;
+  --color-info: #0284C7;
+  --color-info-soft: rgba(2, 132, 199, 0.08);
+
+  /* Technical Grid */
+  --grid-line-color: rgba(255, 94, 30, 0.12);
+  --grid-line-major-color: rgba(255, 94, 30, 0.22);
+  --grid-size: 24px;
+  --grid-size-major: 96px;
+
+  /* Typography */
+  --font-sans: 'Noto Sans Bengali', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace;
+  --line-height-body: 1.6;
+  --line-height-heading: 1.3;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Sizing & Spacing Scale (4, 8, 12, 16, 24, 32, 48, 64) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radii */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-card: 14px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+
+  /* Z-indices */
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-drawer: 400;
+  --z-modal: 500;
+
+  /* Shadows (minimal, border-first definition) */
+  --shadow-none: none;
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 1px 4px rgba(255, 94, 30, 0.04);
+  --shadow-card-glow: 0 0 0 1px #FF5E1E, 0 4px 16px rgba(255, 94, 30, 0.12);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08);
+  --shadow-focus: 0 0 0 2px #ffffff, 0 0 0 4px var(--accent-primary);
+}

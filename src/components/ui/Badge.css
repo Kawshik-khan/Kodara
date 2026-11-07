@@ -1,0 +1,59 @@
+/* Technical Badge Tag */
+.kodara-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-xs);
+  border: 1px solid transparent;
+  line-height: 1;
+}
+
+.kodara-badge--sm {
+  padding: 2px 6px;
+  font-size: 0.6875rem;
+}
+
+.kodara-badge--md {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+}
+
+.kodara-badge--orange {
+  background-color: var(--accent-soft);
+  border-color: var(--border-brand-soft);
+  color: var(--accent-primary);
+}
+
+.kodara-badge--neutral {
+  background-color: var(--bg-surface-subtle);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+.kodara-badge--success {
+  background-color: var(--color-success-soft);
+  border-color: rgba(22, 163, 74, 0.3);
+  color: var(--color-success);
+}
+
+.kodara-badge--warning {
+  background-color: var(--color-warning-soft);
+  border-color: rgba(217, 119, 6, 0.3);
+  color: var(--color-warning);
+}
+
+.kodara-badge--info {
+  background-color: var(--color-info-soft);
+  border-color: rgba(2, 132, 199, 0.3);
+  color: var(--color-info);
+}
+
+.kodara-badge--outline {
+  background-color: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-muted);
+}

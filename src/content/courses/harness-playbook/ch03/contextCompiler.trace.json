@@ -1,0 +1,5608 @@
+{
+ "source": "\"\"\"Chapter 03: retrieval finds candidates; compilation decides what this invocation may rely upon.\"\"\"\nfrom dataclasses import dataclass, field\n\n\n@dataclass(frozen=True)\nclass Unit:\n    id: str\n    claim: str\n    source: str\n    age: int\n    zone: str = \"trusted\"\n    tokens: int = 120\n\n\nOBLIGATIONS = {\n    \"identity\": ({\"identity_service\"}, 300),\n    \"settlement\": ({\"billing_ledger\", \"subscription_log\"}, 30),\n    \"policy\": ({\"policy_registry\"}, 600),\n}\n\n\n@dataclass\nclass Package:\n    case_version: int = 41\n    status: str = \"VALIDATING\"\n    admitted: dict = field(default_factory=dict)\n    conflicts: dict = field(default_factory=dict)\n    untrusted_data: list = field(default_factory=list)\n    rejected: dict = field(default_factory=dict)\n    diagnostics: dict = field(default_factory=dict)\n    capabilities: list = field(default_factory=list)\n\n\ndef compile_briefing(pkg, pool, max_tokens=1000, reserve_tokens=300):\n    \"\"\"Compile a bounded, phase-specific context package for resolution_proposal.\"\"\"\n    for unit in pool:\n        if unit.zone == \"untrusted_data\":\n            pkg.untrusted_data.append(unit.id)   # data-only; never instruction or authority\n            continue\n        sources, max_age = OBLIGATIONS[unit.claim]\n        if unit.source not in sources:\n            pkg.rejected[unit.id] = \"not_authoritative\"\n        elif unit.age > max_age:\n            pkg.rejected[unit.id] = \"stale_evidence\"\n        else:\n            pkg.admitted.setdefault(unit.claim, []).append(unit.id)\n\n    for claim in OBLIGATIONS:\n        units = pkg.admitted.get(claim, [])\n        if not units:\n            pkg.diagnostics[claim] = \"STALE_REQUIRED_EVIDENCE\"\n        elif len(units) > 1:\n            pkg.conflicts[claim] = list(units)   # preserve disagreement; do not smooth over\n\n    if pkg.diagnostics:\n        pkg.status = \"BLOCKED\"\n        return pkg.status\n    pkg.status = \"READY\"\n    pkg.capabilities = [\"billing.preview_resolution\"]   # commit_refund withheld in proposal phase\n    return pkg.status\n\n\ndef consume(pkg, live_case_version):\n    \"\"\"Consume a READY package only if its bound dependencies still match the world.\"\"\"\n    if pkg.status != \"READY\":\n        raise RuntimeError(f\"build is {pkg.status}: cannot invoke model\")\n    if pkg.case_version != live_case_version:\n        pkg.status = \"STALE\"\n        pkg.diagnostics[\"version\"] = \"DEPENDENCY_CHANGED\"\n        raise RuntimeError(\"case version changed after READY: recompile\")\n    pkg.status = \"CONSUMED\"\n    return pkg.status\n\n\ndef naive_rag(prompt, pool):\n    \"\"\"Top-k accumulation: dumps untrusted, stale and non-authoritative items into one prompt.\"\"\"\n    for unit in pool:\n        prompt.append(f\"{unit.id} ({unit.source}, {unit.zone})\")\n    return prompt\n\n\ndef case_9182_pool(policy_age=2820, policy_id=\"policy-v31\"):\n    return [\n        Unit(\"attachment-1\", \"complaint\", \"customer_upload\", 10, zone=\"untrusted_data\"),\n        Unit(\"crm-match-1\", \"identity\", \"crm_search\", 20),\n        Unit(\"id-binding-7\", \"identity\", \"identity_service\", 40),\n        Unit(\"charges-991\", \"settlement\", \"billing_ledger\", 5),\n        Unit(\"sub-events-4\", \"settlement\", \"subscription_log\", 5),\n        Unit(\"case-8100\", \"policy\", \"case_archive\", 100),\n        Unit(policy_id, \"policy\", \"policy_registry\", policy_age),\n    ]\n\n\nif __name__ == \"__main__\":\n    for label, age, pid in [(\"first build (stale policy)\", 2820, \"policy-v31\"), (\"rebuilt (fresh policy)\", 12, \"policy-v32\")]:\n        pkg = Package(case_version=41)\n        compile_briefing(pkg, case_9182_pool(policy_age=age, policy_id=pid))\n        print(f\"# {label}: status={pkg.status} admitted={pkg.admitted} conflicts={pkg.conflicts} rejected={pkg.rejected}\")\n    try:\n        consume(pkg, live_case_version=42)\n    except RuntimeError as err:\n        print(f\"# after case edit v41->v42: status={pkg.status} ({err})\")",
+ "sourcePath": "harness/ch03/context_compiler.py",
+ "python": "3.14.7",
+ "scenarios": {
+  "blocked": [
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='attachment-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 38,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 38,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='attachment-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 39,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 39,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='attachment-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='attachment-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='crm-match-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='crm-match-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='crm-match-1')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 42,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='crm-match-1')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='crm-match-1')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 43,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 46,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 43,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 46,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 43,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 46,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='case-8100')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='case-8100')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='case-8100')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 42,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='case-8100')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='case-8100')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 43,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 44,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 44,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 48,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 49,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'identity'"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 50,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'identity'",
+       "units": "['id-binding-7']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 52,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 52,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'identity'",
+       "units": "['id-binding-7']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 48,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'identity'",
+       "units": "['id-binding-7']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 49,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'settlement'",
+       "units": "['id-binding-7']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 50,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'settlement'",
+       "units": "['charges-991', 'sub-events-4']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 52,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 52,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'settlement'",
+       "units": "['charges-991', 'sub-events-4']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 53,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 53,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'settlement'",
+       "units": "['charges-991', 'sub-events-4']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 48,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'settlement'",
+       "units": "['charges-991', 'sub-events-4']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 49,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "['charges-991', 'sub-events-4']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 50,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "[]"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 51,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 51,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "[]"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 48,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "[]"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {
+       "policy": "STALE_REQUIRED_EVIDENCE"
+      },
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 55,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 55,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "[]"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {
+       "policy": "STALE_REQUIRED_EVIDENCE"
+      },
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 56,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 56,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "[]"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {
+       "policy": "STALE_REQUIRED_EVIDENCE"
+      },
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 57,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "[]"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "BLOCKED",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {
+       "policy": "STALE_REQUIRED_EVIDENCE"
+      },
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 57,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 57,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v31')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "[]"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "BLOCKED",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative",
+       "policy-v31": "stale_evidence"
+      },
+      "diagnostics": {
+       "policy": "STALE_REQUIRED_EVIDENCE"
+      },
+      "capabilities": []
+     }
+    },
+    "detail": "'BLOCKED'"
+   }
+  ],
+  "ready": [
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='attachment-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 38,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 38,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='attachment-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 39,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 39,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='attachment-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='attachment-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='crm-match-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='crm-match-1')"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='crm-match-1')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 42,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='crm-match-1')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {},
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='crm-match-1')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 43,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 46,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {},
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='id-binding-7')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'identity_service'}",
+       "max_age": "300"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 43,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 46,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='charges-991')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 43,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 46,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='sub-events-4')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='case-8100')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='case-8100')",
+       "sources": "{'billing_ledger', 'subscription_log'}",
+       "max_age": "30"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='case-8100')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 42,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 42,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='case-8100')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='case-8100')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 37,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 37,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 40,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 40,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 41,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 41,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 43,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 43,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 46,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 46,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 36,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 36,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 48,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 49,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'identity'"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 50,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'identity'",
+       "units": "['id-binding-7']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 52,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 52,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'identity'",
+       "units": "['id-binding-7']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 48,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'identity'",
+       "units": "['id-binding-7']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 49,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'settlement'",
+       "units": "['id-binding-7']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 50,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'settlement'",
+       "units": "['charges-991', 'sub-events-4']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 52,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 52,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'settlement'",
+       "units": "['charges-991', 'sub-events-4']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 53,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 53,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'settlement'",
+       "units": "['charges-991', 'sub-events-4']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {},
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 48,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'settlement'",
+       "units": "['charges-991', 'sub-events-4']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 49,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 49,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "['charges-991', 'sub-events-4']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 50,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 50,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "['policy-v32']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 52,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 52,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "['policy-v32']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 48,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 48,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "['policy-v32']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 55,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 55,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "['policy-v32']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 58,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 58,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "['policy-v32']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "VALIDATING",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 59,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 59,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "['policy-v32']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "READY",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": []
+     }
+    }
+   },
+   {
+    "line": 60,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 60,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "['policy-v32']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "READY",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": [
+       "billing.preview_resolution"
+      ]
+     }
+    }
+   },
+   {
+    "line": 60,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "compile_briefing",
+      "line": 60,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "max_tokens": "1000",
+       "reserve_tokens": "300",
+       "unit": "Unit(id='policy-v32')",
+       "sources": "{'policy_registry'}",
+       "max_age": "600",
+       "claim": "'policy'",
+       "units": "['policy-v32']"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "READY",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": [
+       "billing.preview_resolution"
+      ]
+     }
+    },
+    "detail": "'READY'"
+   }
+  ],
+  "stale": [
+   {
+    "line": 65,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "consume",
+      "line": 65,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "live_case_version": "42"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "READY",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": [
+       "billing.preview_resolution"
+      ]
+     }
+    }
+   },
+   {
+    "line": 67,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "consume",
+      "line": 67,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "live_case_version": "42"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "READY",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": [
+       "billing.preview_resolution"
+      ]
+     }
+    }
+   },
+   {
+    "line": 68,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "consume",
+      "line": 68,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "live_case_version": "42"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "READY",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": [
+       "billing.preview_resolution"
+      ]
+     }
+    }
+   },
+   {
+    "line": 69,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "consume",
+      "line": 69,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "live_case_version": "42"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "STALE",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {},
+      "capabilities": [
+       "billing.preview_resolution"
+      ]
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "consume",
+      "line": 70,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "live_case_version": "42"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "STALE",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {
+       "version": "DEPENDENCY_CHANGED"
+      },
+      "capabilities": [
+       "billing.preview_resolution"
+      ]
+     }
+    }
+   },
+   {
+    "line": 70,
+    "event": "exception",
+    "frames": [
+     {
+      "fn": "consume",
+      "line": 70,
+      "locals": {
+       "pkg": "Package(case_version=41)",
+       "live_case_version": "42"
+      }
+     }
+    ],
+    "objects": {
+     "pkg": {
+      "case_version": 41,
+      "status": "STALE",
+      "admitted": {
+       "identity": [
+        "id-binding-7"
+       ],
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ],
+       "policy": [
+        "policy-v32"
+       ]
+      },
+      "conflicts": {
+       "settlement": [
+        "charges-991",
+        "sub-events-4"
+       ]
+      },
+      "untrusted_data": [
+       "attachment-1"
+      ],
+      "rejected": {
+       "crm-match-1": "not_authoritative",
+       "case-8100": "not_authoritative"
+      },
+      "diagnostics": {
+       "version": "DEPENDENCY_CHANGED"
+      },
+      "capabilities": [
+       "billing.preview_resolution"
+      ]
+     }
+    },
+    "detail": "RuntimeError('case version changed after READY: recompile')"
+   }
+  ],
+  "naive": [
+   {
+    "line": 77,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 77,
+      "locals": {
+       "prompt": "[]",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id..."
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": []
+     }
+    }
+   },
+   {
+    "line": 78,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 78,
+      "locals": {
+       "prompt": "[]",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='attachment-1')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": []
+     }
+    }
+   },
+   {
+    "line": 77,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 77,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)']",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='attachment-1')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 78,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 78,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)']",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='crm-match-1')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 77,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 77,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='crm-match-1')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 78,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 78,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='id-binding-7')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 77,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 77,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='id-binding-7')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)",
+       "id-binding-7 (identity_service, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 78,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 78,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='charges-991')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)",
+       "id-binding-7 (identity_service, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 77,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 77,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='charges-991')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)",
+       "id-binding-7 (identity_service, trusted)",
+       "charges-991 (billing_ledger, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 78,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 78,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='sub-events-4')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)",
+       "id-binding-7 (identity_service, trusted)",
+       "charges-991 (billing_ledger, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 77,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 77,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='sub-events-4')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)",
+       "id-binding-7 (identity_service, trusted)",
+       "charges-991 (billing_ledger, trusted)",
+       "sub-events-4 (subscription_log, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 78,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 78,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='case-8100')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)",
+       "id-binding-7 (identity_service, trusted)",
+       "charges-991 (billing_ledger, trusted)",
+       "sub-events-4 (subscription_log, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 77,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 77,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='case-8100')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)",
+       "id-binding-7 (identity_service, trusted)",
+       "charges-991 (billing_ledger, trusted)",
+       "sub-events-4 (subscription_log, trusted)",
+       "case-8100 (case_archive, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 78,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 78,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='policy-v31')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)",
+       "id-binding-7 (identity_service, trusted)",
+       "charges-991 (billing_ledger, trusted)",
+       "sub-events-4 (subscription_log, trusted)",
+       "case-8100 (case_archive, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 77,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 77,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='policy-v31')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)",
+       "id-binding-7 (identity_service, trusted)",
+       "charges-991 (billing_ledger, trusted)",
+       "sub-events-4 (subscription_log, trusted)",
+       "case-8100 (case_archive, trusted)",
+       "policy-v31 (policy_registry, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 79,
+    "event": "line",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 79,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='policy-v31')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)",
+       "id-binding-7 (identity_service, trusted)",
+       "charges-991 (billing_ledger, trusted)",
+       "sub-events-4 (subscription_log, trusted)",
+       "case-8100 (case_archive, trusted)",
+       "policy-v31 (policy_registry, trusted)"
+      ]
+     }
+    }
+   },
+   {
+    "line": 79,
+    "event": "return",
+    "frames": [
+     {
+      "fn": "naive_rag",
+      "line": 79,
+      "locals": {
+       "prompt": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m...",
+       "pool": "[Unit(id='attachment-1'), Unit(id='crm-match-1'), Unit(id...",
+       "unit": "Unit(id='policy-v31')"
+      }
+     }
+    ],
+    "objects": {
+     "prompt": {
+      "items": [
+       "attachment-1 (customer_upload, untrusted_data)",
+       "crm-match-1 (crm_search, trusted)",
+       "id-binding-7 (identity_service, trusted)",
+       "charges-991 (billing_ledger, trusted)",
+       "sub-events-4 (subscription_log, trusted)",
+       "case-8100 (case_archive, trusted)",
+       "policy-v31 (policy_registry, trusted)"
+      ]
+     }
+    },
+    "detail": "['attachment-1 (customer_upload, untrusted_data)', 'crm-m..."
+   }
+  ]
+ }
+}

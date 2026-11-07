@@ -1,0 +1,112 @@
+/* Technical Button System (White + Orange Precision Outline) */
+.kodara-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: var(--radius-md);
+  transition: all 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+/* Sizing */
+.kodara-button--sm {
+  padding: 4px 10px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.kodara-button--md {
+  padding: 6px 14px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.kodara-button--lg {
+  padding: 10px 20px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.kodara-button--full {
+  width: 100%;
+}
+
+/* Variants */
+
+/* Default Kodara: White surface with crisp orange border & orange text */
+.kodara-button--outline {
+  background-color: var(--bg-surface);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.kodara-button--outline:hover:not(:disabled) {
+  background-color: var(--accent-soft);
+  border-color: var(--accent-primary-hover);
+  color: var(--accent-primary-hover);
+}
+
+.kodara-button--outline:active:not(:disabled) {
+  background-color: rgba(255, 87, 34, 0.14);
+}
+
+/* High Emphasis: Solid Orange */
+.kodara-button--solid {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+}
+
+.kodara-button--solid:hover:not(:disabled) {
+  background-color: var(--accent-primary-hover);
+  border-color: var(--accent-primary-hover);
+}
+
+.kodara-button--solid:active:not(:disabled) {
+  background-color: var(--accent-primary-active);
+}
+
+/* Ghost / Neutral control */
+.kodara-button--ghost {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+
+.kodara-button--ghost:hover:not(:disabled) {
+  background-color: var(--bg-surface-subtle);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+/* Danger variant */
+.kodara-button--danger {
+  background-color: var(--bg-surface);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.kodara-button--danger:hover:not(:disabled) {
+  background-color: var(--color-danger-soft);
+}
+
+/* Disabled */
+.kodara-button--disabled,
+.kodara-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.kodara-button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

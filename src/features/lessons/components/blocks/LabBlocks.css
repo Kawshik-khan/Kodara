@@ -1,0 +1,96 @@
+.kodara-lab-missing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  margin: 18px 0;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card, 14px);
+  background: #ffffff;
+  color: var(--text-secondary);
+}
+
+.kodara-lab-missing svg { color: var(--accent-primary); }
+.kodara-lab-missing code { font: 11px var(--font-mono); color: var(--text-muted); }
+
+.kodara-faq {
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-card, rgba(255, 94, 30, 0.35));
+  border-radius: var(--radius-card, 14px);
+  padding: 18px 20px;
+  margin: 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kodara-faq__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-primary);
+  margin-bottom: 4px;
+}
+
+.kodara-faq__head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.kodara-faq__badge {
+  font: 700 10px var(--font-mono);
+  text-transform: uppercase;
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.kodara-faq__item {
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.kodara-faq__item[open] { border-color: var(--border-card-subtle); }
+
+.kodara-faq__item summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.kodara-faq__item summary::-webkit-details-marker { display: none; }
+.kodara-faq__item summary svg { flex: none; margin-top: 4px; color: var(--text-muted); transition: transform 0.15s ease; }
+.kodara-faq__item[open] summary svg { transform: rotate(180deg); color: var(--accent-primary); }
+.kodara-faq__item summary:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; border-radius: 8px; }
+
+.kodara-faq__item p {
+  margin: 0;
+  padding: 0 14px 14px;
+  font-size: 14.5px;
+  line-height: 1.75;
+  color: var(--text-secondary);
+}
+
+.kodara-faq__ref {
+  display: inline-block;
+  margin-left: 8px;
+  font: 11.5px var(--font-mono);
+  color: var(--accent-primary-active);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kodara-faq__item summary svg { transition: none; }
+}
